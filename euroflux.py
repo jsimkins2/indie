@@ -149,10 +149,40 @@ for i in year:
 f.close()
 ### Time for plotting ###
 
-chwd = list(itertools.chain(*chwd))
-chco2 = list(itertools.chain(*chco2))
-neco2 = list(itertools.chain(*neco2))
-    
+chwd_com = list(itertools.chain(*chwd))
+chco2_com = list(itertools.chain(*chco2))
+chfc_com = list(itertools.chain(*chfc))
+
+newd_com = list(itertools.chain(*newd))
+neco2_com = list(itertools.chain(*neco2))
+nefc_com = list(itertools.chain(*nefc))
+
+chwd_com = np.array(chwd_com)
+chco2_com = np.array(chco2_com)
+
+newd_com = np.array(newd_com)
+neco2_com = np.array(newd_com)
+nefc_com = np.array(nefc_com)
+print np.nanmean(nefc_com)
+print np.nanstd(nefc_com)
+
+ch = np.row_stack((chwd_com,chfc_com))
+ne = np.row_stack((newd_com,nefc_com))
+
+ch_inds = np.where((ch[0] > 255) & (ch[0] < 295))
+ne_inds = np.where((ne[0] > 255) & (ne[0] < 295))
+
+new_chfc = np.take(ch[1], ch_inds)
+new_chwd = np.take(ch[0], ch_inds)
+
+new_nefc = np.take(ne[1], ne_inds)
+new_newd = np.take(ne[0], ne_inds)
+
+ch_westerly = np.row_stack((new_chwd, new_chfc))
+ne_westerly = np.row_stack((new_newd, new_nefc))
+print np.nanmean(ne_westerly)
+
+
 # x1 - x2
 #np.subtract(x1, x2)
 
