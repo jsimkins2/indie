@@ -1,7 +1,9 @@
 require(ggplot2)
 require(ncdf4)
+require(lubridate)
+require(data.table)
+setwd("~/Wisconsin/Thesis/Debias")
 
-setwd("~/Wisconsin/Thesis/Data")
 var = data.frame(DAP.name = c("tas","rlds","ps","rsds","uas","vas","huss","pr"),
                  CF.name = c("air_temperature","surface_downwelling_longwave_flux_in_air","air_pressure","surface_downwelling_shortwave_flux_in_air","eastward_wind","northward_wind","specific_humidity","precipitation_flux"),
                  units = c('Kelvin',"W/m2","Pascal","W/m2","m/s","m/s","g/g","kg/m2/s")
@@ -12,15 +14,37 @@ tem = nc_open('GFDL.CM3.rcp45.r1i1p1.2006.nc')
 for (j in 1:length(var$CF.name)){
   gfdl[[j]] = ncvar_get(tem,as.character(var$CF.name[j]))
 }
-flux = read.csv('FLX_US-WCr_FLUXNET2015_SUBSET_HH_1999-2014_1-1.csv')
+tower = list()
+tow = nc_open('US-WCr.2006.nc')
+for (j in 1:length(var$CF.name)){
+  tower[[j]] = ncvar_get(tow,as.character(var$CF.name[j]))
+}
 
-#Only looking at 2006
-flux = flux[which(flux$TIMESTAMP_START > 200600000000 & flux$TIMESTAMP_START < 200700000000), ]
+gfdl = data.frame(gfdl)
+tower = data.frame(tower)
+colnames(gfdl) = c("tas","rlds","ps","rsds","uas","vas","huss","pr")
+colnames(tower) = c("tas","rlds","ps","rsds","uas","vas","huss","pr")
 
-flux$TA_F = flux$TA_F + 273.15
+gdates = seq(from = as.POSIXct("2006-01-01 00:00"), by = "3 hours", length.out = 2920)
+gdates.names <- strftime(gdates, "%Y-%m-%d %H:%M:%S", tz="GMT")
+row.names(gfdl) <- gdates.names
+fdates = seq(from = as.POSIXct("2006-01-01 00:00:00"), by = "30 min", length.out = nrow(tower))
+fdates.names <- strftime(fdates, "%Y-%m-%d %H:%M:%S", tz="GMT")
+row.names(tower) <- fdates.names
 
-gx = seq(1,2920,by=1)
-plot(flux$TIMESTAMP_START,flux$TA_F,type="l",col="red", xlab = "Year",
-     ylab = "Temperature (K)",main = "GFDL vs. Tower")
-lines(gx,gfdl[[1]],col="green")
-grid(NULL,NULL)
+mean_t = apply(tower,2,mean)
+mean_g = apply(gfdl,2,mean)
+
+mean_diff = mean_t - mean_g
+
+test = list()
+for (k in 1:length(mean_diff)){
+  test[[k]] = (gfdl[[k]] + mean_diff[[k]])
+}
+
+gfdl = data.frame(test)
+colnames(gfdl) = c("tas","rlds","ps","rsds","uas","vas","huss","pr")
+gdates = seq(from = as.POSIXct("2006-01-01 00:00"), by = "3 hours", length.out = 2920)
+gdates.names <- strftime(gdates, "%Y-%m-%d %H:%M:%S", tz="GMT")
+row.names(gfdl) <- gdates.names
+
