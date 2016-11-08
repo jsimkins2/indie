@@ -11,8 +11,8 @@
 ##'                 flux data +/- window_days from the value 
 ##' @param site.id
 ##' @param ensemble_members - a numeric value that selects how many ensemble members you would like to run 
-##' @param window_days - a numeric value setting the size of the window for standard deviation calculations
-##' @param resolution - resolution in HOURS that you would like the modeled data to be downscaled to, default option assumes 6 hourly, i.e. a vector is created 
+##' @param wd - window days, a numeric value setting the size of the window for standard deviation calculations
+##' @param reso - resolution in HOURS that you would like the modeled data to be downscaled to, default option assumes 6 hourly, i.e. a vector is created 
 ##'                     with values every 6 hours. Half hour is .5
 ##' @param swdn_method - Downscaling downwelling shortwave flux in air, options listed below.  
 ##'                      "sine" -  fits a sine curve with an amplitude of the model daily maximum which is derived from the model 
@@ -23,30 +23,25 @@
 ##' @param utc_diff - difference from UTC time at lat/lon. For example, a flux tower in EST would be UTC-5, which makes utc_diff = -5
 ##'                   This is used when swdn_method = "sine" to ensure a proper diurnal pattern 
 ##' @author James Simkins
-downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='normal',ensemble_members = 10, window_days = 20,
-                          resolution = 6, swdn_method = "sine", utc_diff = -6, overwrite=FALSE, verbose=FALSE, ...){  
-  reso <- resolution
-  wd <- window_days
+downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='normal',ensemble_members = 10, wd = 20,
+                          reso = 6, swdn_method = "sine", utc_diff = -6, overwrite=FALSE, verbose=FALSE, ...){  
+
   substrRight <- function(x, n){
     substr(x, nchar(x)-n+1, nchar(x))
   }
   sub_str <- substrRight(modelfile, 7)
   year <- substr(sub_str,1, 4)
   year = as.numeric(year)
-  
-  # eph_year for shortwave calculations. Since MACA doesn't contain leap years, eph_year is set to 2006 is year given is a leap year. 
   eph_year <- year
   mod_name <- substr(modelfile,1,4)
-  
-  
-  fluxfile <- "US-WCr.2006.nc"
-  #Variable names 
-  var <- data.frame(CF.name = c("air_temperature","air_temperature_max","air_temperature_min","surface_downwelling_longwave_flux_in_air","air_pressure",
-                               "surface_downwelling_shortwave_flux_in_air","eastward_wind","northward_wind",
+
+  # Variable names 
+  var <- data.frame(CF.name = c("air_temperature","air_temperature_max","air_temperature_min","surface_downwelling_longwave_flux_in_air",
+                                "air_pressure","surface_downwelling_shortwave_flux_in_air","eastward_wind","northward_wind",
                                "specific_humidity","precipitation_flux"),
                    units = c('Kelvin','Kelvin','Kelvin',"W/m2","Pascal","W/m2","m/s","m/s","g/g","kg/m2/s")
   )
-  #Reading in the flux data
+  # Reading in the flux data
     flux <- list()
     tem <- ncdf4::nc_open(fluxfile)
     dim <- tem$dim
@@ -65,7 +60,7 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
     flux$air_temperature_max <- flux$air_temperature
     flux$air_temperature_min <- flux$air_temperature
   
-  #Reading in the model data
+  # Reading in the model data
     model <- list()
     tow <- ncdf4::nc_open(modelfile)
     for (j in seq_along(var$CF.name)){
@@ -86,9 +81,12 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
         if (length(flux$air_temperature)%%366 == 0){
           flux = flux[1:365*(nrow(flux)/366)]}
           eph_year = 2006}} #chose an non-leap year to use for daylength calculations if we don't have the 
-
+    if (lubridate::leap_year(eph_year) == TRUE){
+      sp = 366}
+    if (lubridate::leap_year(eph_year) == FALSE){
+      sp = 365}
+    reso_len <- sp*24/reso #nrow(downscaled.met)
     
-    reso_len <- 365*24/reso
     step <- length(flux$air_temperature)/reso_len
     upscale_flux <- data.frame()
     for (n in 1:length(var$CF.name)){
@@ -103,13 +101,15 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
     # Now we start a for loop for the ensemble members and begin downscaling. If method = "normal", a random normal distribution
     # is used to downscale as so; (mean = value of modeled data) (sd = +/- window_days of upscale_flux data at the same time intervals)
     # Future work is to implement more methods for downscaling
-    
     for (e in seq_along(1:ensemble_members)){
       if (method == "normal"){
-      div = nrow(upscale_flux)/nrow(model)
-      sd_step = nrow(upscale_flux)/365
+      div = nrow(upscale_flux)/nrow(model) #tells us how many values need to be generated (via downscaling) from each model value
+      sd_step = nrow(upscale_flux)/sp #allows us to step through each window at specific times
       
-      #### Temperature 
+      # Temperature 
+      # For temperature, we create a random normal distribution with the mean of the model value and the standard deviation
+      # of the upscaled flux value within the window, and step through that window sequentially so that we are only using
+      # the standard devaition of values recorded at the same time as the value we are generating.
       randtemp <- vector()
       for (x in seq_along(model$air_temperature)){
         four <- vector()
@@ -126,7 +126,7 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
         randtemp <- append(randtemp,four)
       }
       
-      ### Air Temperature Max and Min
+      # Air Temperature Max and Min
       temp_max <- vector()
       if (all(is.na(model$air_temperature_max)) == TRUE){
         temp_max <- rep(NA,reso_len)}
@@ -165,50 +165,50 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
           temp_min <- append(temp_min,four)}
       }
       
-      #### Precipitation_flux
+      # Precipitation_flux
       # this takes the daily total of precipitation and uses that as a total possible amount of precip. 
-      # It randomly distributes the values of precipitation 
+      # It randomly distributes the values of precipitation
       rand_vect_cont <- function(N, M, sd = 1) {
         vec <- rnorm(N, M/N, sd)
         vec / sum(vec) * M
       }
       precip <- vector()
       for (x in seq_along(model$precipitation_flux)){
-        lowday <- (x-wd)*sd_step
-        highday <- (x+wd)*sd_step
+        lowday <- (x-wd)*div
+        highday <- (x+wd)*div
         if (lowday < 0){lowday = 0}
         if (highday > reso_len){highday = reso_len}
         four <- vector()
-        four <- rand_vect_cont(4,model$precipitation_flux[x], 
+        four <- rand_vect_cont(div,model$precipitation_flux[x], 
                                sd = sd(upscale_flux$precipitation_flux[lowday:highday]))
         four[four<0] = 0
         precip <- append(precip,four)
       }
       
-      #### Specific Humidity
+      # Specific Humidity
       spechum <- vector()
       for (x in seq_along(model$specific_humidity)){
-        lowday <- (x-wd)*sd_step
-        highday <- (x+wd)*sd_step
+        lowday <- (x-wd)*div
+        highday <- (x+wd)*div
         if (lowday < 0){lowday = 0}
         if (highday > reso_len){highday = reso_len}
         four <- vector()
-        for (n in seq_along(1:4)){
+        for (n in seq_along(1:div)){
           four[n] <- rnorm(1, mean = model$specific_humidity[x], 
                           sd = sd(upscale_flux$specific_humidity[lowday:highday]))}
         spechum <- append(spechum,four)
       }
       spechum[spechum < 0] = 0
       
-      #### Winds
+      # Winds
       east <- vector()
       for (x in seq_along(model$eastward_wind)){
-        lowday <- (x-wd)*sd_step
-        highday <- (x+wd)*sd_step
+        lowday <- (x-wd)*div
+        highday <- (x+wd)*div
         if (lowday < 0){lowday = 0}
         if (highday > reso_len){highday = reso_len}
         four <- vector()
-        for (n in seq_along(1:4)){
+        for (n in seq_along(1:div)){
           four[n] <- rnorm(1, mean = model$eastward_wind[x], 
                           sd = sd(upscale_flux$eastward_wind[lowday:highday]))}
         east <- append(east,four)
@@ -216,18 +216,18 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
   
       north <- vector()
       for (x in seq_along(model$northward_wind)){
-        lowday <- (x-wd)*sd_step
-        highday <- (x+wd)*sd_step
+        lowday <- (x-wd)*div
+        highday <- (x+wd)*div
         if (lowday < 0){lowday = 0}
         if (highday > reso_len){highday = reso_len}
         four <- vector()
-        for (n in seq_along(1:4)){
+        for (n in seq_along(1:div)){
           four[n] <- rnorm(1, mean = model$northward_wind[x],
                           sd = sd(upscale_flux$northward_wind[lowday:highday]))}
         north <- append(north,four)
       }
   
-      #### Downwelling shortwave radiation flux
+      # Downwelling shortwave radiation flux
       # Ephemeris is a function to calculate sunrise/sunset times and daylength for SW calculations in sine method
       ephemeris <- function(lat, lon, date, span=1, tz="UTC") {
         
@@ -251,36 +251,30 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
       
       swmodel <- model$surface_downwelling_shortwave_flux_in_air
       swdn <- vector()
-      
+    
       # The sine method produces an hourly sine wave of 
-
       if (swdn_method == "sine"){
         
-        if (lubridate::leap_year(eph_year) == TRUE){
-          span = 366}
-        if (lubridate::leap_year(eph_year)){
-          span = 365}
-        
         eph <- ephemeris(lat_flux,lon_flux,date = paste0(eph_year,"-01-01 00:00:00"), 
-                       span = span, tz = "UTC")
+                       span = sp, tz = "UTC")
         day_len <- eph$day_length
         
-        ### Need to have average daily values for this, so this upscales the model data if needed
+        # Need to have average daily values for this method, so this upscales the model data to daily resolution if needed
         daily_row = nrow(model)
-        daily_step = daily_row/span
+        daily_step = daily_row/sp
         daily.swdn = vector()
-          for (x in 1:span){
+          for (x in 1:sp){
             daily.swdn[x] <- mean(swmodel[(x*daily_step-daily_step+1):(x*daily_step)])}
-      ### creating the sine wave
+        
+        # creating the sine wave
         for (i in seq_along(daily.swdn)){
           t <- seq(from=pi/day_len[i],to=pi,by=pi/day_len[i])
           wav <- ((daily.swdn[i]*(24/day_len[i]))/0.637)*sin(t)
           
-        #Placing zeros for swdn when it's dark out
+        # swdn = 0 without sunlight
         srs <- eph$sunrise
         hr <- substr(srs[i],1,2)
         hr <-as.numeric(hr)
-        #6 is for CST time zone which is UTC-6. Need to automatically find TZ by longitude.
         hr <- hr+utc_diff
         
         l <- vector()
@@ -291,16 +285,16 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
         for(n in seq_along(1:(24-(length(wav)+hr)))){
           l[n+hr+length(wav)] = 0}
         
-        swdn <- append(swdn,l)
+        swdn <- append(swdn,l)}
         
         swflux <- vector()
         sw_step <- length(swdn)/reso_len
         for (x in 1:reso_len){
-          swflux[x] <- mean(swdn[(x*sw_step-sw_step+1):(x*sw_step)])}}
+          swflux[x] <- mean(swdn[(x*sw_step-sw_step+1):(x*sw_step)])}
         swflux[swflux < 0] = 0 
       }
         
-      # The spline method might be used if you have model resolution close to hourly and wish to downscale it
+      # The spline method uses spline interpolation to connect existing values and downscale
       if (swdn_method == "spline"){
         tem.met = vector()
           for (x in seq(from=0, to=nrow(upscale_flux), by=div)){
@@ -310,6 +304,7 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
       swflux = zoo::na.spline(tem.met)
       swflux[swflux<0] <- 0
       }
+      
       # The Waichler method doesn't need averaged SW flux values, it models SW downwelling flux based on Tmax-Tmin and Precipitation
       # Reference is Waichler and Wigtosa 2003. Our no-precip coefficient is 2 instead of 1 (fits the data better)
       if (swdn_method == "Waichler"){
@@ -327,7 +322,7 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
         Bm <- c(0.2089,0.2857, 0.2689, 0.2137, 0.1925, 0.2209, 0.2527, 0.2495,0.2232, 0.1728, 0.1424, 0.1422)
         for (x in seq_along(Bm)){
           mlen <- list()
-          mlen <- rep(Bm[x],m[x]*4)
+          mlen <- rep(Bm[x],m[x]*24/reso)
           bmlist <- append(bmlist,mlen)}
         A <-.73
         C <- .7
@@ -342,44 +337,44 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
         swflux[swflux<0]=0
       }
       
-      #### Longwave Downwelling 
+      # Longwave Downwelling in air flux
       if (all(is.na(model$surface_downwelling_longwave_flux_in_air)) == TRUE){
         lwflux<-vector()
         lwflux<- rep(NA,reso_len)}
       if (all(is.na(model$surface_downwelling_longwave_flux_in_air)) == FALSE){
       lwflux<- vector()
       for (x in seq_along(model$surface_downwelling_longwave_flux_in_air)){
-        lowday <- (x-wd)*w
-        highday <- (x+wd)*w
+        lowday <- (x-wd)*div
+        highday <- (x+wd)*div
         if (lowday < 0){lowday = 0}
         if (highday > reso_len){highday = reso_len}
         four <- vector()
-        for (n in seq_along(1:4)){
+        for (n in seq_along(1:div)){
           four[n] <- rnorm(1, mean = model$surface_downwelling_longwave_flux_in_air[x], 
                           sd = sd(upscale_flux$surface_downwelling_longwave_flux_in_air[lowday:highday]))}
         lwflux <- append(lwflux,four)}
       }
       
-      #### Atmospheric Pressure
+      # Atmospheric Pressure
       if (all(is.na(model$air_pressure)) == TRUE){
         pres<-vector()
         pres<- rep(NA,reso_len)}
       if (all(is.na(model$air_pressure)) == FALSE){
         pres<- vector()
         for (x in seq_along(model$air_pressure)){
-          lowday <- (x-wd)*w
-          highday <- (x+wd)*w
+          lowday <- (x-wd)*div
+          highday <- (x+wd)*div
           if (lowday < 0){lowday = 0}
           if (highday > reso_len){highday = reso_len}
           four <- vector()
-          for (n in seq_along(1:4)){
+          for (n in seq_along(1:div)){
             four[n] <- rnorm(1, mean = model$air_pressure[x], sd = sd(upscale_flux$air_pressure[lowday:highday]))}
           pres <- append(pres,four)}
         }
       
       } #this ends the method = 'normal' downscaling phase
 
-    #### Putting all the variables together in a data frame
+    # Putting all the variables together in a data frame
     downscaled.met <- data.frame(randtemp,temp_max,temp_min,lwflux,pres,swflux,east,north,spechum,precip)
     colnames(downscaled.met) <- var$CF.name
 
@@ -426,4 +421,6 @@ downscale.met <- function(outfolder, modelfile, fluxfile, site_id, method='norma
 }
 
 # downscale.met('trial', 'MACA.IPSL-CM5A-LR.rcp85.r1i1p1.2006.nc', 'US-WCr.2006.nc')
+# downscale.met('trial', 'GFDL.CM3.rcp45.r1i1p1.2006.nc', 'US-WCr.2006.nc', reso = 1)
+
   
