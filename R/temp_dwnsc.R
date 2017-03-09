@@ -25,7 +25,7 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # library(lubridate)
   library(ggplot2)
   # library(tictoc)
-  dat.mod = dat.ens
+  
   # Figure out if we need to extract the approrpiate 
   if(is.null(lags.init)){
     lags.init <- lags.list[[unique(dat.mod$ens.day)]]
@@ -35,18 +35,21 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   dat.sim <- list() 
   
   # DOY indexing is now off from the original; fix by subtracting 1
-  dat.mod$doy = dat.mod$doy-1
+  # dat.mod$doy = dat.mod$doy-1
   # ------------------------------------------
   # Modeling SWDOWN 
   # Note: this can be generalized to just run by DOY for all years at once since there's no memory in the system
   # ------------------------------------------
   {
-    # Load the saved model"
-    path.model = "Christy_code/mod_out/"
+    # Load the saved model
+    path.model="~/Christy_code/Ameri_downscale/"
+    dat.mod = dat.ens
+    n.ens = 3
+    
     load(file.path(path.model,"model_swdown.Rdata"))
     mod.swdown.doy <- mod.list
     rm(mod.list)
-    n.ens = ens.hr
+    
     # Load the meta info for the betas
     betas.swdown <- nc_open(file.path(path.model,"betas_swdown.nc"))
     n.beta <- nrow(ncvar_get(betas.swdown, "1"))
@@ -73,6 +76,8 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
       Rbeta <- as.matrix(ncvar_get(betas.swdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
       
+      
+      
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.swdown.doy[[paste(day.now)]], 
                               Rbeta=Rbeta, 
@@ -89,7 +94,7 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
         dat.sim[["swdown"]][rows.mod,j] <- dat.pred[,cols.prop[j]]
       }
       
-      # For night time hours, value shoudl be 0
+      # For night time hours, value should be 0
       dat.sim[["swdown"]][rows.now[!rows.now %in% rows.mod],] <- 0
     }
     
@@ -305,13 +310,15 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       dat.pred <- dat.pred^2 # because squared to prevent negative numbers
       
       # Hard-coding some sanity bounds by ball-parking things from NLDAS & CRUNCEP
-      # dat.pred[dat.pred<100] <- 100
-      # dat.pred[dat.pred>600] <- 600
+      # This is necessary if you have poorly constrained training models
+      dat.pred[dat.pred<100] <- 100
+      dat.pred[dat.pred>600] <- 600
       
       # Randomly pick which values to save & propogate
       cols.prop <- sample(1:n.ens, ncol(dat.sim$lwdown), replace=T)
       
       for(j in 1:ncol(dat.sim$lwdown)){
+        # test <- which(dat.temp$ens==paste0("X", j))
         dat.sim[["lwdown"]][rows.now,j] <- dat.pred[dat.temp$ens==paste0("X", j),cols.prop[j]]
       }
     }
