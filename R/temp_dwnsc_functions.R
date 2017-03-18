@@ -1,3 +1,16 @@
+save.model <- function(model.out, model, outfile){
+  # Function to save linear models as a .Rdata file
+  # model.out = the model output list
+  # model = the name of the layer of betas to save (e.g. "model", or "model.resid")
+  
+  mod.list <- list()
+  for(v in names(model.out)){
+    mod.list[[v]] <- model.out[[v]][[model]]
+  }
+  
+  save(mod.list, file=outfile)
+}
+
 model.tair <- function(dat.train, n.beta=1000, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=1237){
   library(MASS)
   set.seed(seed)
@@ -71,7 +84,9 @@ model.tair <- function(dat.train, n.beta=1000, resids=F, parallel=F, n.cores=NUL
   } else {
     for(i in names(dat.list)){
       mod.out[[i]] <- model.train(dat.subset=dat.list[[i]], n.beta=n.beta, resids=resids)
-    }
+      save.model(model.out=mod.tair.doy, model="model", outfile=file.path(mod.out, "model_tair.Rdata"))
+      
+      }
   }
   
   return(mod.out)
@@ -605,212 +620,4 @@ save.betas <- function(model.out, betas, outfile){
   
 } 
 
-save.model <- function(model.out, model, outfile){
-  # Function to save linear models as a .Rdata file
-  # model.out = the model output list
-  # model = the name of the layer of betas to save (e.g. "model", or "model.resid")
-  
-  mod.list <- list()
-  for(v in names(model.out)){
-    mod.list[[v]] <- model.out[[v]][[model]]
-  }
-  
-  save(mod.list, file=outfile)
-} 
 
-graph.resids <- function(var, dat.train, model.var, fig.dir){
-  dat.train$var     <- dat.train[,var]
-  dat.train$lag.var <- dat.train[,paste0("lag.", var)]
-  if(var=="tair"){
-    dat.train$next.var <- dat.train[,paste0("next.", "tmax")]
-  } else {
-    dat.train$var.day <- dat.train[,paste0(var, ".day")]
-    dat.train$next.var <- dat.train[,paste0("next.", var)]
-  }
-  
-  if(var == "precipf"){
-    for(i in names(model.var)){
-      if(as.numeric(i) == 365) next # 365 is weird, so lets skip it
-      if(length(dat.train[dat.train$doy==as.numeric(i) & dat.train$var.day>0, "resid"])==0) next # Skip the days with no rain!
-      dat.train[dat.train$doy==as.numeric(i) & dat.train$var.day>0, "predict"] <- predict(model.var[[i]]$model, newdata=dat.train[dat.train$doy==as.numeric(i) & dat.train$var.day>0, ])
-      # dat.train[dat.train$doy==as.numeric(i) & dat.train$var.day>0, "resid"] <- resid(model.var[[i]]$model)
-    }
-  } else if(var=="swdown"){ 
-    for(i in names(model.var)){
-      if(as.numeric(i) == 365) next # 365 is weird, so lets skip it
-      hrs.day = unique(dat.train[dat.train$doy==as.numeric(i) & dat.train$swdown>quantile(dat.train[dat.train$swdown>0,"swdown"], 0.05), "hour"])
-      dat.train[dat.train$doy==as.numeric(i) & dat.train$hour %in% hrs.day, "predict"] <- predict(mod.swdown.doy[[i]]$model, newdata=dat.train[dat.train$doy==as.numeric(i) & dat.train$hour %in% hrs.day, ])
-      # dat.train[dat.train$doy==as.numeric(i) & dat.train$hour %in% hrs.day, "resid"] <- resid(mod.swdown.doy[[i]]$model)
-      
-      dat.train[dat.train$doy==as.numeric(i) & !(dat.train$hour %in% hrs.day), "predict"] <- 0
-    }
-  } else {
-    for(i in names(model.var)){
-      if(as.numeric(i) == 365) next # 365 is weird, so lets skip it
-      dat.train[dat.train$doy==as.numeric(i) & !is.na(dat.train$lag.var) & !is.na(dat.train$next.var), "predict"] <- predict(model.var[[i]]$model, newdata=dat.train[dat.train$doy==as.numeric(i) & !is.na(dat.train$lag.var) & !is.na(dat.train$next.var), ])
-      # dat.train[dat.train$doy==as.numeric(i) & !is.na(dat.train$lag.var) & !is.na(dat.train$next.var), "resid"] <- resid(model.var[[i]]$model)
-    }
-  }
-  if(var %in% c("qair")){
-    dat.train$predict <- exp(dat.train$predict)
-    if(var=="qair"){
-      dat.train$predict[dat.train$predict>max(dat.train[,var])] <- max(dat.train[,var])
-    }
-  }
-  if(var %in% c("wind", "lwdown")){
-    dat.train$predict <- (dat.train$predict)^2
-  }
-  dat.train$resid <- dat.train[,var] - dat.train$predict
-  
-  # summary(dat.train)
-  
-  png(file.path(fig.dir, paste0(var, "_Resid_vs_Hour.png")), height=8, width=8, units="in", res=180)
-  plot(resid ~ hour, data=dat.train, cex=0.5); abline(h=0, col="red")
-  dev.off()
-  
-  png(file.path(fig.dir, paste0(var, "_Resid_vs_DOY.png")), height=8, width=8, units="in", res=180)
-  plot(resid ~ doy, data=dat.train, cex=0.5); abline(h=0, col="red") # slightly better in summer, but no clear temporal over-dispersion
-  dev.off()
-  
-  png(file.path(fig.dir, paste0(var, "_Resid_vs_Predict.png")), height=8, width=8, units="in", res=180)
-  plot(resid ~ predict, data=dat.train); abline(h=0, col="red")
-  dev.off()
-  
-  png(file.path(fig.dir, paste0(var, "_Resid_vs_Obs.png")), height=8, width=8, units="in", res=180)
-  plot(resid ~ var, data=dat.train, cex=0.5); abline(h=0, col="red")
-  dev.off()
-  
-  png(file.path(fig.dir, paste0(var, "_Predict_vs_Obs.png")), height=8, width=8, units="in", res=180)
-  plot(predict ~ var, data=dat.train, cex=0.5); abline(a=0, b=1, col="red")
-  dev.off()
-  
-  # Looking at the daily maxes & mins
-  day.stats <- aggregate(dat.train[,c("var", "resid", "predict")],
-                         by=dat.train[,c("time.day2", "year", "doy")],
-                         FUN=mean, na.rm=T)
-  day.stats$mod.max <- aggregate(dat.train[,c("predict")],
-                                 by=dat.train[,c("time.day2", "year", "doy")],
-                                 FUN=max)[,"x"]
-  day.stats$mod.min <- aggregate(dat.train[,c("predict")],
-                                 by=dat.train[,c("time.day2", "year", "doy")],
-                                 FUN=min)[,"x"]
-  
-  png(file.path(fig.dir, paste0(var, "_Predict_vs_Mean.png")), height=8, width=8, units="in", res=180)
-  plot(predict~ var, data=day.stats, cex=0.5); abline(a=0, b=1, col="red")
-  dev.off()
-  
-  png(file.path(fig.dir, paste0(var, "_ResidualHistograms_Day.png")), height=6, width=8, units="in", res=180)
-  # par(mfrow=c(3,1))
-  par(mfrow=c(1,1))
-  hist(day.stats$resid, main="Daily Mean Residuals")
-  dev.off()
-}
-
-graph.predict <- function(dat.mod, dat.ens, var, fig.dir){
-  # ---------
-  # Graph the output
-  # ---------
-  {
-    
-    date.vec <- dat.mod[dat.mod$ens.day==unique(dat.mod$ens.day)[1],"date"]
-    dat.mod <- aggregate(dat.mod[,c("tmax.day", "tmin.day", "precipf.day", "swdown.day", "lwdown.day", "press.day", "qair.day", "wind.day")],
-                         by=dat.mod[,c("year", "doy", "time.day", "time.hr")],
-                         FUN=mean)
-    dat.mod$date <- date.vec
-    head(dat.mod)
-    
-    dat.mod$var.pred <- apply(dat.ens[[var]],1,mean)
-    dat.mod$var.025 <- apply(dat.ens[[var]],1,quantile, 0.025)
-    dat.mod$var.975 <- apply(dat.ens[[var]],1,quantile, 0.975)
-    
-    
-    if(var=="tair"){
-      
-      # If this is temperature, add lines fo the daily max and min
-      png(file.path(fig.dir, paste0(var, y, "_year.png")), height=8, width=10, units="in", res=220)
-      print(
-        ggplot(data=dat.mod[dat.mod$year==y,]) +
-          geom_ribbon(aes(x=date, ymin=var.025, ymax=var.975), alpha=0.5, fill="blue") +
-          geom_line(aes(x=date, y=var.pred), color="blue") +
-          geom_point(aes(x=date, y=var.pred), color="blue", size=0.5) +
-          # geom_point(aes(x=date, y=tmax.day), color="black", size=0.1, alpha=0.5) +
-          # geom_point(aes(x=date, y=tmin.day), color="black", size=0.1, alpha=0.5) +
-          scale_x_datetime(expand=c(0,0)) +
-          ggtitle(paste0(var, ": ", y)) +
-          theme_bw()
-      )
-      dev.off()
-      
-      dat.graph1 <- dat.mod[dat.mod$doy>=32 & dat.mod$doy<=(32+14),]
-      dat.graph1$season <- as.factor("winter")
-      dat.graph2 <- dat.mod[dat.mod$doy>=123 & dat.mod$doy<=(123+14),]
-      dat.graph2$season <- as.factor("spring")
-      dat.graph3 <- dat.mod[dat.mod$doy>=214 & dat.mod$doy<=(213+14),]
-      dat.graph3$season <- as.factor("summer")
-      dat.graph4 <- dat.mod[dat.mod$doy>=305 & dat.mod$doy<=(305+14),]
-      dat.graph4$season <- as.factor("fall")
-      
-      dat.graph <- rbind(dat.graph1, dat.graph2, dat.graph3, dat.graph4)
-      
-      png(file.path(fig.dir, paste0(var, y,"_examples.png")), height=8, width=10, units="in", res=220)
-      print(
-        ggplot(data=dat.graph[dat.graph$year==y,]) +
-          facet_wrap(~season, scales="free") +
-          # geom_point(aes(x=date, y=tmax.day), color="black", size=0.1, alpha=0.5) +
-          # geom_point(aes(x=date, y=tmin.day), color="black", size=0.1, alpha=0.5) +
-          geom_ribbon(aes(x=date, ymin=var.025, ymax=var.975), alpha=0.5, fill="blue") +
-          geom_line(aes(x=date, y=var.pred), color="blue") +
-          geom_point(aes(x=date, y=var.pred), color="blue", size=0.5) +
-          scale_y_continuous(name=var) +
-          scale_x_datetime(expand=c(0,0)) +
-          ggtitle(paste0(var, ": ", y)) +
-          theme_bw()
-      )
-      dev.off()
-      
-    } else {
-      png(file.path(fig.dir, paste0(var, y, "_year.png")), height=8, width=10, units="in", res=220)
-      print(
-        ggplot(data=dat.mod[dat.mod$year==y,]) +
-          geom_ribbon(aes(x=date, ymin=var.025, ymax=var.975), alpha=0.5, fill="blue") +
-          geom_line(aes(x=date, y=var.pred), color="blue") +
-          geom_point(aes(x=date, y=var.pred), color="blue", size=0.5) +
-          # geom_line(aes(x=date, y=swdown), color="black", alpha=0.5) +
-          # geom_point(aes(x=date, y=swdown), color="black", size=0.3, alpha=0.5) +
-          scale_x_datetime(expand=c(0,0)) +
-          ggtitle(paste0(var, ": ", y)) +
-          theme_bw()
-      )
-      dev.off()
-      
-      dat.graph1 <- dat.mod[dat.mod$doy>=32 & dat.mod$doy<=(32+14),]
-      dat.graph1$season <- as.factor("winter")
-      dat.graph2 <- dat.mod[dat.mod$doy>=123 & dat.mod$doy<=(123+14),]
-      dat.graph2$season <- as.factor("spring")
-      dat.graph3 <- dat.mod[dat.mod$doy>=214 & dat.mod$doy<=(213+14),]
-      dat.graph3$season <- as.factor("summer")
-      dat.graph4 <- dat.mod[dat.mod$doy>=305 & dat.mod$doy<=(305+14),]
-      dat.graph4$season <- as.factor("fall")
-      
-      dat.graph <- rbind(dat.graph1, dat.graph2, dat.graph3, dat.graph4)
-      
-      png(file.path(fig.dir, paste0(var, y,"_examples.png")), height=8, width=10, units="in", res=220)
-      print(
-        ggplot(data=dat.graph[dat.graph$year==y,]) +
-          facet_wrap(~season, scales="free") +
-          # geom_line(aes(x=date, y=swdown), color="black") +
-          # geom_point(aes(x=date, y=swdown), color="black", size=0.5) +
-          geom_ribbon(aes(x=date, ymin=var.025, ymax=var.975), alpha=0.5, fill="blue") +
-          geom_line(aes(x=date, y=var.pred), color="blue") +
-          geom_point(aes(x=date, y=var.pred), color="blue", size=0.5) +
-          scale_y_continuous(name=var) +
-          scale_x_datetime(expand=c(0,0)) +
-          ggtitle(paste0(var, ": ", y)) +
-          theme_bw()
-      )
-      dev.off()
-    }
-  }
-  # ---------
-  
-}
