@@ -61,7 +61,7 @@ source("Ameri_downscale/temp_dwnsc_functions.R")
 source("Ameri_downscale/temp_dwnsc.R")
 
 
-dat.base <- "~/Christy_code/Christy_code/maca_data_site_0-1"
+dat.base <- "~/Christy_code/"
 # dat.base <- "~/Desktop/met_ensembles/PARKFALLS/"
 # dat.base <- "~/Desktop/met_bias_day/data/met_ensembles/PARKFALLS/"
 
@@ -75,24 +75,10 @@ site.lon=-90.27
 GCM = c("IPSL")
 # GCM.list = "MIROC-ESM"
 ens.hr  <- 3 # Number of hourly ensemble members to create
-n.day <- 10 # Number of daily ensemble members to process
-yrs.plot <- c(2019)
-# years.sim=2015:1900
+n.day <- 1 # Number of daily ensemble members to process, must be 1 because not passing in daily ensemble, otherwise
 years.sim=NULL
 cores.max = 12
-# dat.base <- "~/Desktop/met_bias_day/data/met_ensembles/HARVARD/"
 
-# dat.train <- read.csv(file.path(wd.base, "data/paleon_sites/HARVARD/NLDAS_1980-2015.csv"))
-
-#should only do below iffffff we use half hourly not aggregated.
-#dat.train$hour <- dat.train$hour + minute(dat.train$date)/60
-
-#if this is is supplied hourly data
-#dat.train$hour <- floor(dat.train$hour)
-
-# Calculate the timestep in hours to make things easier
-#timestep <- unique(minute(dat.train$date)/60)
-#timestep <- mean(diff(timestep))
 
 df.hour <- data.frame(hour=unique(dat.train$hour)) # match this to whatever your "hourly" timestep is
 
@@ -132,7 +118,7 @@ dimX <- ncdim_def( "lat", units="degrees", longname="longitude", vals=site.lon )
 GCM="IPSL"
 # tic()
 # Set the directory where the output is & load the file
-path.gcm <- file.path(dat.base, "day")
+path.gcm <- file.path(dat.base)
 # dat.day <- dir(path.gcm, ".Rdata")
 # load(file.path(path.gcm, dat.day)) # Loads dat.out.full
 
@@ -145,13 +131,13 @@ if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
 # NOTE: Need to start with the last and work to the first
 # -----------------------------------
 # Figure out which daily ensembles we should pull from
-day.dirs <- dir(path.gcm,  paste0(site.name, "_", GCM, "_day_"))
+day.dirs <- dir(path.gcm,  paste0(site.name, "_", GCM, "_day_")) #directory of input data aka maca
 ens.day.all <- substr(day.dirs, nchar(day.dirs)-2, nchar(day.dirs))
 
-hrs.dir <- dir(file.path(path.out),  paste0(site.name, "_", GCM, "_1hr_"))
+hrs.dir <- dir(file.path(path.out),  paste0(site.name, "_", GCM, "_1hr_")) #this is the output path
 ens.day.done <- substr(hrs.dir, nchar(hrs.dir)-6, nchar(hrs.dir)-4)
 
-ens.list <- ens.day.all[!(ens.day.all %in% ens.day.done)]
+ens.list <- ens.day.all[!(ens.day.all %in% ens.day.done)] #list of files so aka multiple years
 
 seed <- seed.vec[length(hrs.dir)+1] # This makes sure that if we add ensemble members, it gets a new, but reproducible seed
 set.seed(seed)
@@ -160,7 +146,7 @@ set.seed(seed)
 
 # Initialize the lags
 lags.init <- list() # Need to initialize lags first outside of the loop and then they'll get updated internally
-
+# by doing this, will they get updated in temp_dwnsc.??? 
   path.day <- file.path(path.gcm,  paste0(site.name, "_", GCM, "_day_"))
   file.ens <- dir(path.day, paste(str_pad(years.sim[1], 4, pad=0)))
   
@@ -169,7 +155,7 @@ lags.init <- list() # Need to initialize lags first outside of the loop and then
   nc.time <- ncvar_get(nc.now, "time")
   tmax.init    <- ncvar_get(nc.now, "air_temperature_max")[length(nc.time)]
   tmin.init    <- ncvar_get(nc.now, "air_temperature_min")[length(nc.time)]
-  precipf.init <- ncvar_get(nc.now, "precipitation_flux")[length(nc.time)]/(60*60*24)
+  precipf.init <- ncvar_get(nc.now, "precipitation_flux")[length(nc.time)]
   swdown.init  <- ncvar_get(nc.now, "surface_downwelling_shortwave_flux_in_air")[length(nc.time)]
   lwdown.init  <- ncvar_get(nc.now, "surface_downwelling_longwave_flux_in_air")[length(nc.time)]
   press.init   <- ncvar_get(nc.now, "air_pressure")[length(nc.time)]
@@ -182,21 +168,24 @@ lags.init <- list() # Need to initialize lags first outside of the loop and then
   lwdown.init = 250
   press.init = 10000
   
-  lags.init[[paste0("X")]][["tair"   ]] <- data.frame(array(mean(c(tmax.init, tmin.init)), dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["tmax"   ]] <- data.frame(array(tmax.init   , dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["tmin"   ]] <- data.frame(array(tmin.init   , dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["precipf"]] <- data.frame(array(precipf.init, dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["swdown" ]] <- data.frame(array(swdown.init , dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["lwdown" ]] <- data.frame(array(lwdown.init , dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["press"  ]] <- data.frame(array(press.init  , dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["qair"   ]] <- data.frame(array(qair.init   , dim=c(1, ens.hr)))
-  lags.init[[paste0("X")]][["wind"   ]] <- data.frame(array(wind.init   , dim=c(1, ens.hr)))
+  lags.init[["tair"   ]] <- data.frame(array(mean(c(tmax.init, tmin.init)), dim=c(1, ens.hr)))
+  lags.init[["tmax"   ]] <- data.frame(array(tmax.init   , dim=c(1, ens.hr)))
+  lags.init[["tmin"   ]] <- data.frame(array(tmin.init   , dim=c(1, ens.hr)))
+  lags.init[["precipf"]] <- data.frame(array(precipf.init, dim=c(1, ens.hr)))
+  lags.init[["swdown" ]] <- data.frame(array(swdown.init , dim=c(1, ens.hr)))
+  lags.init[["lwdown" ]] <- data.frame(array(lwdown.init , dim=c(1, ens.hr)))
+  lags.init[["press"  ]] <- data.frame(array(press.init  , dim=c(1, ens.hr)))
+  lags.init[["qair"   ]] <- data.frame(array(qair.init   , dim=c(1, ens.hr)))
+  lags.init[["wind"   ]] <- data.frame(array(wind.init   , dim=c(1, ens.hr)))
 
 years.sim = 2019
 y = years.sim
 
-#for(y in years.sim){
+#for(y in years.sim){ # will need to add this for loop back in this maf
   dat.ens <- list() # a new list for each ensemble member as a new layer
+  
+  #ens.sims <- list() # this will propogate that spread through each year, so instead of 
+  # restarting every January 1, it will propogate those lag values
   
   # Create a list layer for each ensemble member
   # NOTE: NEED TO CHECK THE TIME STAMPS HERE TO MAKE SURE WE'RE PULLING AND ADDING IN THE RIGHT PLACE
@@ -204,7 +193,7 @@ y = years.sim
     dat.yr <- data.frame(time    = ncvar_get(nc.now, "time"   ),
                          tmax    = ncvar_get(nc.now, "air_temperature_max"   ),
                          tmin    = ncvar_get(nc.now, "air_temperature_min"   ),
-                         precipf = ncvar_get(nc.now, "precipitation_flux")/(60*60*24),
+                         precipf = ncvar_get(nc.now, "precipitation_flux"),
                          swdown  = ncvar_get(nc.now, "surface_downwelling_shortwave_flux_in_air" ),
                          lwdown  = ncvar_get(nc.now, "surface_downwelling_longwave_flux_in_air" ),
                          press   = ncvar_get(nc.now, "air_pressure" ),
@@ -219,26 +208,32 @@ y = years.sim
     nc_close(nc.now)
     
     # Do some stuff to get the right time variables for dat.yr
-    dat.yr$year <- years.sim
-    dat.yr$date <- as.Date(dat.yr$time/86400, origin="2019-01-01")
+    dat.yr$year <- y
+    dat.yr$date <- as.Date(dat.yr$time/86400, origin="2018-12-31") #doy needs to start at 1 here, not 0
     dat.yr$doy <- yday(dat.yr$date)
     
     # Create the data frame for the "next" values
     dat.nxt <- dat.yr
     # Shift everyting up by a day to get the preview of the next day to get processed
     # Note: Because we work backwards through time, Jan 1 is the "next" day to get processed with Jan 2
-    dat.nxt[2:(nrow(dat.nxt)), c("tmax", "tmin", "precipf", "swdown", "lwdown", "press", "qair", "wind")] <- dat.nxt[1:(nrow(dat.nxt)-1), c("tmax", "tmin", "precipf", "swdown", "lwdown", "press", "qair", "wind")]
+    dat.nxt[2:(nrow(dat.nxt)), c("tmax", "tmin", "precipf", 
+                                 "swdown", "lwdown", "press", "qair", "wind")] <- dat.nxt[1:(nrow(dat.nxt)-1),
+                                                                                                                     c("tmax", "tmin", "precipf", "swdown", "lwdown", "press", "qair", "wind")]
+    # next day associates january 2nd with january 1
+    #might need to flip this maf to +1 in dat.nxt[1:(nrow(dat.nxt))] might need to dat.nxt[2:(nrow(dat.nxt))]
     
     # Need to add in the "next" value for january (dec 31 of next year) 
     # Note: if we're past the end of our daily data, the best we can do is leave things as is (copy the last day's value)
     if(y>min(years.sim)){
+      
+      #file.next needs to be +1 here so we go forward in years
       
       nc.nxt <- nc_open("~/Christy_code/maca_data_site_0-1/MACA.IPSL-CM5A-LR.rcp85.r1i1p1.2020.nc")
       # tair.init    <- dat.out.full$met.bias[dat.out.full$met.bias$year==max(years.sim) & dat.out.full$met.bias$doy==364,"tair"]
       nxt.time <- ncvar_get(nc.nxt, "time")
       dat.nxt[dat.nxt$time==min(dat.nxt$time),"tmax"   ] <- ncvar_get(nc.nxt, "air_temperature_max")[length(nxt.time)]
       dat.nxt[dat.nxt$time==min(dat.nxt$time),"tmin"   ] <- ncvar_get(nc.nxt, "air_temperature_min")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"precipf"] <- ncvar_get(nc.nxt, "precipitation_flux")[length(nxt.time)]/(60*60*24)
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"precipf"] <- ncvar_get(nc.nxt, "precipitation_flux")[length(nxt.time)]
       dat.nxt[dat.nxt$time==min(dat.nxt$time),"swdown" ] <- ncvar_get(nc.nxt, "surface_downwelling_shortwave_flux_in_air")[length(nxt.time)]
       dat.nxt[dat.nxt$time==min(dat.nxt$time),"lwdown" ] <- ncvar_get(nc.nxt, "surface_downwelling_longwave_flux_in_air")[length(nxt.time)]
       dat.nxt[dat.nxt$time==min(dat.nxt$time),"press"  ] <- ncvar_get(nc.nxt, "air_pressure")[length(nxt.time)]
@@ -274,18 +269,20 @@ y = years.sim
                                             next.wind    =dat.nxt$wind
     )
     
-    dat.ens$time.day <- as.numeric(difftime(dat.ens$date, "2019-01-01", tz="GMT", units="day"))
+    #so start point should be start piont -1, so we changed this to 2018-12-31
+    dat.ens$time.day <- as.numeric(difftime(dat.ens$date, "2018-12-31", tz="GMT", units="day"))
     dat.ens <- merge(dat.ens, df.hour, all=T)
     
-    # A very ugly hack way to get the minutes in there
-    dat.ens$minute <- abs(dat.ens$hour-(round(dat.ens$hour, 0)))*60
+    # A very ugly hack way to get the minutes in there, yeah don't really need this maf,
+    #can probably get rid of this and anywhere else that gets a minute aiight
+    #dat.ens$minute <- abs(dat.ens$hour-(round(dat.ens$hour, 0)))*60
     
     # timestep <- max(dat.ens[[paste0("X", e)]]$minute)/60 # Calculate the timestep to make the date function work
-    dat.ens$date <- strptime(paste(dat.ens$year, dat.ens$doy, round(dat.ens$hour),dat.ens$minute, sep="-"), "%Y-%j-%H-%M", tz="GMT")
-    dat.ens$time.hr <- as.numeric(difftime(dat.ens$date, "2019-01-01", tz="GMT", units="hour")) #+ minute(dat.train$date)/60
+    dat.ens$date <- strptime(paste(dat.ens$year, dat.ens$doy, dat.ens$hour, sep="-"), "%Y-%j-%H", tz="GMT")
+    dat.ens$time.hr <- as.numeric(difftime(dat.ens$date, "2018-12-31", tz="GMT", units="hour")) #+ minute(dat.train$date)/60
     dat.ens <- dat.ens[order(dat.ens$time.hr),]
     
-    # ens.sims[[paste0("X", e)]] <- predict.subdaily(dat.ens[[paste0("X", e)]], n.ens=ens.hr, path.model=file.path(dat.base, "subday_models"), lags.list=lags.init, lags.init=NULL, dat.train=dat.train)
+    ens.sims <- predict.subdaily(dat.ens, n.ens=ens.hr, path.model=file.path(dat.base, "subday_models"), lags.list=lags.init, lags.init=NULL, dat.train=dat.train)
     # End ensembles setup
   
   # Set up the time dimension for this year
@@ -301,13 +298,14 @@ y = years.sim
   # Note: Using a loop for each ensemble member for now, but this will get 
   #       parallelized to speed it up soon, but we'll prototype in parallel
   # -----------------------------------
-  cores.use <- min(cores.max, length(dat.ens))
-  ens.sims  <- mclapply(dat.ens, predict.subdaily, mc.cores=cores.use, n.ens=ens.hr, path.model="Ameri_downscale/", lags.list=lags.init, lags.init=NULL, dat.train=dat.train)
+  #cores.use <- min(cores.max, length(dat.ens))
+  #ens.sims  <- mclapply(dat.ens, predict.subdaily, mc.cores=cores.use, n.ens=ens.hr, path.model="Ameri_downscale/", lags.list=lags.init, lags.init=NULL, dat.train=dat.train)
   
   # ens.sims <- predict.subdaily(dat.ens[[1]], n.ens=ens.hr, path.model=file.path(dat.base, "subday_models"), lags.init=lags.init[[1]], dat.train=dat.train)
   
   # If this is one of our designated QAQC years, makes some graphs
   # Now doing this for the whole GCM
+  # wil just need to get rid of e here, need to be careful in certain places too
   if(y %in% yrs.plot){
     dat.plot <- data.frame()
     ens.plot <- list()
@@ -337,8 +335,8 @@ y = years.sim
     # ens.sims[[paste0("X", e)]]$qair[ens.sims[[paste0("X", e)]]$qair>qair.max] <- qair.max
     
     # Update the initial lags for next year
-    for(v in names(ens.sims[[paste0("X", e)]])){
-      lags.init[[paste0("X",e)]][[v]] <- data.frame(ens.sims[[paste0("X", e)]][[v]][length(ens.sims[[paste0("X", e)]][[v]]),])
+    for(v in names(ens.sims)){
+      lags.init[[v]] <- data.frame(ens.sims[[v]][length(ens.sims[[v]]),])
     }
     
     # -----------------------------------

@@ -26,6 +26,12 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   library(ggplot2)
   # library(tictoc)
   
+  
+  
+  path.model="~/Christy_code/WCr_training_model"
+  dat.mod = dat.ens
+  n.ens = 3
+  
   # Figure out if we need to extract the approrpiate 
   if(is.null(lags.init)){
     lags.init <- lags.list[[unique(dat.mod$ens.day)]]
@@ -41,18 +47,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # Note: this can be generalized to just run by DOY for all years at once since there's no memory in the system
   # ------------------------------------------
   {
-    # Load the saved model
-    path.model="~/Christy_code/Ameri_downscale/"
-    dat.mod = dat.ens
-    n.ens = 3
-    
-    load(file.path(path.model,"model_swdown.Rdata"))
-    mod.swdown.doy <- mod.list
-    rm(mod.list)
-    
     # Load the meta info for the betas
-    betas.swdown <- nc_open(file.path(path.model,"betas_swdown.nc"))
+    betas.swdown <- nc_open(file.path(path.model, "betas_swdown_1.nc"))
     n.beta <- nrow(ncvar_get(betas.swdown, "1"))
+    nc_close(betas.swdown)
     
     dat.sim[["swdown"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -73,13 +71,19 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       dat.temp$swdown = 99999 # Dummy value so there's a column
       # day.now = unique(dat.temp$doy)
       
+      # Load the saved model
+      load(file.path(path.model, paste0("model_swdown_", day.now, ".Rdata")))
+      mod.swdown.doy <- mod.save
+      rm(mod.save)
+      
+      # Pull coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
+      betas.swdown <- nc_open(file.path(path.model, paste0("betas_swdown_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.swdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      
-      
+      nc_close(betas.swdown)
       
       dat.pred <- predict.met(newdata=dat.temp, 
-                              model.predict=mod.swdown.doy[[paste(day.now)]], 
+                              model.predict=mod.swdown.doy, 
                               Rbeta=Rbeta, 
                               resid.err=F,
                               model.resid=NULL, 
@@ -94,12 +98,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
         dat.sim[["swdown"]][rows.mod,j] <- dat.pred[,cols.prop[j]]
       }
       
-      # For night time hours, value should be 0
+      # For night time hours, value shoudl be 0
       dat.sim[["swdown"]][rows.now[!rows.now %in% rows.mod],] <- 0
+      rm(mod.swdown.doy) # Clear out the model to save memory
     }
-    
-    nc_close(betas.swdown)
-    rm(mod.swdown.doy) # Clear out the model to save memory
   }
   # ------------------------------------------
   
@@ -108,13 +110,11 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the saved model
-    load(file.path(path.model,"model_tair.Rdata"))
-    mod.tair.doy <- mod.list
-    rm(mod.list)
-    
     # Load the meta info for the betas
-    betas.tair <- nc_open(file.path(path.model,"betas_tair.nc"))
+    
+    betas.tair <- nc_open(file.path(path.model, "betas_tair_1.nc"))
     n.beta <- nrow(ncvar_get(betas.tair, "1"))
+    nc_close(betas.tair)
     
     dat.sim[["tair"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -143,11 +143,19 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # dat.temp$swdown <- stack(dat.sim$swdown[rows.now,])[,1]
       
+      # Loading the saved model file
+      load(file.path(path.model, paste0("model_tair_", day.now, ".Rdata")))
+      mod.tair.doy <- mod.save
+      rm(mod.save)
+      
+      # Pull coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
+      betas.tair <- nc_open(file.path(path.model, paste0("betas_tair_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.tair, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      nc_close(betas.tair)
       
       dat.pred <- predict.met(newdata=dat.temp, 
-                              model.predict=mod.tair.doy[[paste(day.now)]], 
+                              model.predict=mod.tair.doy, 
                               Rbeta=Rbeta, 
                               resid.err=F,
                               model.resid=NULL, 
@@ -159,8 +167,8 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       for(j in 1:ncol(dat.sim$tair)){
         dat.prop <- dat.pred[dat.temp$ens==paste0("X", j),cols.prop[j]]
-        tmax.ens <- max(dat.temp[dat.temp$ens==paste0("X",j), "tmax.day"])
-        tmin.ens <- min(dat.temp[dat.temp$ens==paste0("X",j), "tmin.day"])
+        tmax.ens <- max(dat.temp[dat.temp$ens==paste0("X", j), "tmax.day"])
+        tmin.ens <- min(dat.temp[dat.temp$ens==paste0("X", j), "tmin.day"])
         
         # Hard-coding in some bounds so we don't drift too far away from our given maxes & mins
         # Not going to worry for the moment about what happens if we undershoot out max/min since
@@ -170,10 +178,8 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
         
         dat.sim[["tair"]][rows.now,j] <- dat.prop
       }
+      rm(mod.tair.doy) # Clear out the model to save memory
     }
-    
-    nc_close(betas.tair)
-    rm(mod.tair.doy) # Clear out the model to save memory
   }
   # ------------------------------------------
   
@@ -186,14 +192,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   #       we'll end up with a daily sum that's pretty close to our daily total (90-110%)
   # ------------------------------------------
   {
-    # Load the saved model
-    load(file.path(path.model,"model_precipf.Rdata"))
-    mod.precipf.doy <- mod.list
-    rm(mod.list)
-    
     # Load the meta info for the betas
-    betas.precipf <- nc_open(file.path(path.model,"betas_precipf.nc"))
+    betas.precipf <- nc_open(file.path(path.model, "precipf", "betas_precipf_1.nc"))
     n.beta <- nrow(ncvar_get(betas.precipf, "1"))
+    nc_close(betas.precipf)
     
     dat.sim[["precipf"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -217,11 +219,19 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       dat.temp <- merge(dat.temp, sim.lag, all.x=T)
       
       
+      # Load the saved model
+      load(file.path(path.model, "precipf", paste0("model_precipf_", day.now, ".Rdata")))
+      mod.precipf.doy <- mod.save
+      rm(mod.save)
+      
+      # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
+      betas.precipf <- nc_open(file.path(path.model, "precipf", paste0("betas_precipf_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.precipf, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      nc_close(betas.precipf)
       
       dat.pred <- predict.met(newdata=dat.temp, 
-                              model.predict=mod.precipf.doy[[paste(day.now)]], 
+                              model.predict=mod.precipf.doy, 
                               Rbeta=Rbeta, 
                               resid.err=F,
                               model.resid=NULL, 
@@ -253,10 +263,8 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       for(j in 1:ncol(dat.sim$precipf)){
         dat.sim[["precipf"]][rows.now,j] <- dat.pred[dat.temp$ens==paste0("X", j),cols.prop[j]]
       }
+      rm(mod.precipf.doy) # Clear out the model to save memory
     }
-    
-    nc_close(betas.precipf)
-    rm(mod.precipf.doy) # Clear out the model to save memory
   }
   # ------------------------------------------
   
@@ -265,14 +273,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # Modeling LWDOWN 
   # ------------------------------------------
   {
-    # Load the saved model
-    load(file.path(path.model,"model_lwdown.Rdata"))
-    mod.lwdown.doy <- mod.list
-    rm(mod.list)
-    
     # Load the meta info for the betas
-    betas.lwdown <- nc_open(file.path(path.model,"betas_lwdown.nc"))
+    betas.lwdown <- nc_open(file.path(path.model,"lwdown", "betas_lwdown_1.nc"))
     n.beta <- nrow(ncvar_get(betas.lwdown, "1"))
+    nc_close(n.beta)
     
     dat.sim[["lwdown"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -297,11 +301,21 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # dat.temp$swdown <- stack(dat.sim$swdown[rows.now,])[,1]
       
+      
+      # Load the saved model
+      load(file.path(path.model, "lwdown", paste0("model_lwdown_", day.now, ".Rdata")))
+      mod.lwdown.doy <- mod.save
+      rm(mod.list)
+      
+      
+      # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
+      betas.lwdown <- nc_open(file.path(path.model,"lwdown", "betas_lwdown_1.nc"))
       Rbeta <- as.matrix(ncvar_get(betas.lwdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      nc_close(betas.lwdown)
       
       dat.pred <- predict.met(newdata=dat.temp, 
-                              model.predict=mod.lwdown.doy[[paste(day.now)]], 
+                              model.predict=mod.lwdown.doy, 
                               Rbeta=Rbeta, 
                               resid.err=F,
                               model.resid=NULL, 
@@ -321,10 +335,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
         # test <- which(dat.temp$ens==paste0("X", j))
         dat.sim[["lwdown"]][rows.now,j] <- dat.pred[dat.temp$ens==paste0("X", j),cols.prop[j]]
       }
+      
+      rm(mod.lwdown.doy) # Clear out the model to save memory
     }
     
-    nc_close(betas.lwdown)
-    rm(mod.lwdown.doy) # Clear out the model to save memory
   }
   # ------------------------------------------
   
@@ -332,14 +346,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # Modeling PRESS 
   # ------------------------------------------
   {
-    # Load the saved model
-    load(file.path(path.model,"model_press.Rdata"))
-    mod.press.doy <- mod.list
-    rm(mod.list)
-    
     # Load the meta info for the betas
-    betas.press <- nc_open(file.path(path.model,"betas_press.nc"))
+    betas.press <- nc_open(file.path(path.model, "press", "betas_press_1.nc"))
     n.beta <- nrow(ncvar_get(betas.press, "1"))
+    nc_close(betas.press)
     
     dat.sim[["press"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -362,11 +372,19 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       }
       dat.temp <- merge(dat.temp, sim.lag, all.x=T)
       
+      # Load the saved model
+      load(file.path(path.model, "press", paste0("model_press", day.now, ".Rdata")))
+      mod.press.doy <- mod.save
+      rm(mod.save)
+      
+      # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
+      betas.press <- nc_open(file.path(path.model, "press", paste0("betas_press_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.press, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      nc_close(betas.press)
       
       dat.pred <- predict.met(newdata=dat.temp, 
-                              model.predict=mod.press.doy[[paste(day.now)]], 
+                              model.predict=mod.press.doy, 
                               Rbeta=Rbeta, 
                               resid.err=F,
                               model.resid=NULL, 
@@ -379,10 +397,8 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       for(j in 1:ncol(dat.sim$press)){
         dat.sim[["press"]][rows.now,j] <- dat.pred[dat.temp$ens==paste0("X", j),cols.prop[j]]
       }
+      rm(mod.press.doy) # Clear out the model to save memory
     }
-    
-    nc_close(betas.press)
-    rm(mod.press.doy) # Clear out the model to save memory
   }
   # ------------------------------------------
   
@@ -390,15 +406,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # Modeling QAIR 
   # ------------------------------------------
   {
-    
-    # Load the saved model
-    load(file.path(path.model,"model_qair.Rdata"))
-    mod.qair.doy <- mod.list
-    rm(mod.list)
-    
     # Load the meta info for the betas
-    betas.qair <- nc_open(file.path(path.model,"betas_qair.nc"))
+    betas.qair <- nc_open(file.path(path.model, "qair", "betas_qair_1.nc"))
     n.beta <- nrow(ncvar_get(betas.qair, "1"))
+    nc_close(betas.qair)
     
     dat.sim[["qair"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -420,11 +431,19 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       }
       dat.temp <- merge(dat.temp, sim.lag, all.x=T)
       
+      # Load the saved model
+      load(file.path(path.model, "qair", paste0("model_qair_", day.now, ".Rdata")))
+      mod.qair.doy <- mod.save
+      rm(mod.save)
+      
+      # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
+      betas.qair <- nc_open(file.path(path.model, "qair", paste0("betas_qair_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.qair, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      nc_close(betas.qair)
       
       dat.pred <- predict.met(newdata=dat.temp, 
-                              model.predict=mod.qair.doy[[paste(day.now)]], 
+                              model.predict=mod.qair.doy, 
                               Rbeta=Rbeta, 
                               resid.err=F,
                               model.resid=NULL, 
@@ -444,10 +463,8 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       for(j in 1:ncol(dat.sim$qair)){
         dat.sim[["qair"]][rows.now,j] <- dat.pred[dat.temp$ens==paste0("X", j),cols.prop[j]]
       }
+      rm(mod.qair.doy) # Clear out the model to save memory
     }
-    
-    nc_close(betas.qair)
-    rm(mod.qair.doy) # Clear out the model to save memory
   }
   # ------------------------------------------
   
@@ -455,14 +472,10 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # Modeling WIND 
   # ------------------------------------------
   {
-    # Load the saved model
-    load(file.path(path.model,"model_wind.Rdata"))
-    mod.wind.doy <- mod.list
-    rm(mod.list)
-    
     # Load the meta info for the betas
-    betas.wind <- nc_open(file.path(path.model,"betas_wind.nc"))
+    betas.wind <- nc_open(file.path(path.model, "wind", "betas_wind_1.nc"))
     n.beta <- nrow(ncvar_get(betas.wind, "1"))
+    nc_close(betas.wind)
     
     dat.sim[["wind"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -484,11 +497,19 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       }
       dat.temp <- merge(dat.temp, sim.lag, all.x=T)
       
+      # Load the saved model
+      load(file.path(path.model, "wind", paste0("model_wind_", day.now, ".Rdata")))
+      mod.wind.doy <- mod.save
+      rm(mod.save)
+      
+      # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
+      betas.wind <- nc_open(file.path(path.model, "wind", paste0("betas_wind_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.wind, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      nc_close(betas.wind)
       
       dat.pred <- predict.met(newdata=dat.temp, 
-                              model.predict=mod.wind.doy[[paste(day.now)]], 
+                              model.predict=mod.wind.doy, 
                               Rbeta=Rbeta, 
                               resid.err=F,
                               model.resid=NULL, 
@@ -506,10 +527,8 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       for(j in 1:ncol(dat.sim$wind)){
         dat.sim[["wind"]][rows.now,j] <- dat.pred[dat.temp$ens==paste0("X", j),cols.prop[j]]
       }
+      rm(mod.wind.doy) # Clear out the model to save memory
     }
-    
-    nc_close(betas.wind)
-    rm(mod.wind.doy) # Clear out the model to save memory
   }
   # ------------------------------------------
   
