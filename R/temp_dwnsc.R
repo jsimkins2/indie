@@ -48,7 +48,7 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the meta info for the betas
-    betas.swdown <- nc_open(file.path(path.model, "betas_swdown_1.nc"))
+    betas.swdown <- nc_open(file.path(path.model, "swdown", "betas_swdown_1.nc"))
     n.beta <- nrow(ncvar_get(betas.swdown, "1"))
     nc_close(betas.swdown)
     
@@ -72,13 +72,13 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       # day.now = unique(dat.temp$doy)
       
       # Load the saved model
-      load(file.path(path.model, paste0("model_swdown_", day.now, ".Rdata")))
+      load(file.path(path.model, "swdown", paste0("model_swdown_", day.now, ".Rdata")))
       mod.swdown.doy <- mod.save
       rm(mod.save)
       
       # Pull coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.swdown <- nc_open(file.path(path.model, paste0("betas_swdown_", day.now, ".nc")))
+      betas.swdown <- nc_open(file.path(path.model, "swdown", paste0("betas_swdown_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.swdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
       nc_close(betas.swdown)
       
@@ -112,7 +112,7 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
     # Load the saved model
     # Load the meta info for the betas
     
-    betas.tair <- nc_open(file.path(path.model, "betas_tair_1.nc"))
+    betas.tair <- nc_open(file.path(path.model, "tair", "betas_tair_1.nc"))
     n.beta <- nrow(ncvar_get(betas.tair, "1"))
     nc_close(betas.tair)
     
@@ -144,13 +144,13 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       # dat.temp$swdown <- stack(dat.sim$swdown[rows.now,])[,1]
       
       # Loading the saved model file
-      load(file.path(path.model, paste0("model_tair_", day.now, ".Rdata")))
+      load(file.path(path.model, "tair", paste0("model_tair_", day.now, ".Rdata")))
       mod.tair.doy <- mod.save
       rm(mod.save)
       
       # Pull coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.tair <- nc_open(file.path(path.model, paste0("betas_tair_", day.now, ".nc")))
+      betas.tair <- nc_open(file.path(path.model, "tair", paste0("betas_tair_", day.now, ".nc")))
       Rbeta <- as.matrix(ncvar_get(betas.tair, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
       nc_close(betas.tair)
       
@@ -209,11 +209,11 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       day.now = unique(dat.temp$doy)
       
       # Set up the lags
-      if(i==max(dat.mod$time.day)){
+      if(i==min(dat.mod$time.day)){
         sim.lag <- stack(lags.init$precipf)
         names(sim.lag) <- c("lag.precipf", "ens")
       } else {
-        sim.lag <- stack(data.frame(array(dat.sim[["precipf"]][dat.mod$time.day==(i+1)  & dat.mod$hour==0,], dim=c(1, ncol(dat.sim$precipf)))))
+        sim.lag <- stack(data.frame(array(dat.sim[["precipf"]][dat.mod$time.day==(i-1)  & dat.mod$hour==23,], dim=c(1, ncol(dat.sim$precipf)))))
         names(sim.lag) <- c("lag.precipf", "ens")
       }
       dat.temp <- merge(dat.temp, sim.lag, all.x=T)
@@ -255,7 +255,7 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
         dat.pred[is.na(dat.pred)] <- 0
       }
       # Convert precip into real units
-      dat.pred <- dat.pred*as.vector((dat.temp$precipf.day*24))
+      dat.pred <- dat.pred*as.vector((dat.temp$precipf.day))
       
       # Randomly pick which values to save & propogate
       cols.prop <- sample(1:n.ens, ncol(dat.sim$precipf), replace=T)

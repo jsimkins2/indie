@@ -13,29 +13,8 @@
 # files from step 2 (daily means) and predict subdaily values.  This gets done by 
 # filtering backwards in time starting with the present (where the trianing data is).
 #
-# There are ways to improve this and speed it up, but hopefully this works for now.
-# We whould also probably think about applying this filter approach to the bias-
-# correction step to avoid abrupt and unreasonable jumps in climate.
-# -----------------------------------
 
-
-# -----------------------------------
-# Workflow
-# -----------------------------------
-# 0. Load libraries, set up file paths, etc
-# ----- Loop through by ensemble member ----------
-#    1. Load and format prediction data (1 file from step 2)
-#       1.1 Load output file from bias correction (bias ensemble member)
-#       1.2 select year we're working with
-#    ----- Loop through by year ----------
-#      2. Predict subdaily values for whole year, filtering backwards in time
-#      3. Write annual output into .nc files 
-#         - separate file for each year/ensemle member; 
-#         - all met vars in one annual file (similar to pecan met structure)
-#    ----- recycle steps 2 & 3 for all years in file ----------
-# ----- recycle step 1 for all files for ensemble member ----------
-# -----------------------------------
-
+# be sure to set up an sp here (i.e. 366 days * 24 hrs per day)
 
 # -----------------------------------
 # 0. Load libraries, set up file paths, etc
@@ -71,6 +50,8 @@ dat.train <- read.csv(file.path("~/US-WCr_traindata"))
 site.name="US-WCr"
 site.lat=45.95
 site.lon=-90.27
+
+
 
 GCM = c("IPSL")
 # GCM.list = "MIROC-ESM"
@@ -313,9 +294,9 @@ y = years.sim
       ens.plot[[i]] <- data.frame(matrix(nrow=nrow(ens.sims[[1]][[i]]), ncol=0))
     }
     for(e in names(ens.sims)){
-      dat.plot <- rbind(dat.plot, dat.ens[[e]])
-      for(i in names(ens.sims[[e]])){
-        ens.plot[[i]] <- cbind(ens.plot[[i]], ens.sims[[e]][[i]])
+      dat.plot <- rbind(dat.plot, dat.ens)
+      for(i in names(ens.sims)){
+        ens.plot[[i]] <- cbind(ens.plot[[i]], ens.sims[[i]])
       }
     }
     day.name <- paste0(site.name, "_", GCM, "_", timestep, "hr")
@@ -367,17 +348,49 @@ y = years.sim
     
   } # End ensemble member prediction for 1 year
   # -----------------------------------
-} # End Year Loop
-# -----------------------------------
 
-# Do some clean-up to save space
-# dir.compress <- dir(path.out, GCM)
+  # need to figure out a way to save these by ensemble member, and have each ensemble member work in conjunction
+  reso_len = 8760
+  y = year
+  
+  for (i in seq_len(ens.hr)){
+    df <- data.frame(matrix(ncol =  length(vars.info$name), nrow = reso_len))
+    colnames(df) <- vars.info$name
+    for (j in vars.info$name){
+      dat.sim[["tair"]][["X1"]]
+      e = paste0("X",i)
+      df[[j]] = dat.sim[[j]][[e]]
+    }
+    assign(paste0("ens",i),df)
+  }
+    
+  
+  rows <- 1
+  dir.create(outfolder, showWarnings = FALSE, recursive = TRUE)
+  
+  loc.file <- file.path(outfolder, paste0(site.name,GCM, "ens", 
+                                          i, "_", y, ".nc"))
+  
+  loc <- ncdf4::nc_create(filename = loc.file, vars = train.list, verbose = verbose)
+  for (j in seq_along(var$CF.name)) {
+    ncdf4::ncvar_put(nc = loc, varid = as.character(var$CF.name[j]), vals = downscaled.met[[j]])
+  }
+  ncdf4::nc_close(loc)
+  
+  results[[e]] <- data.frame(file = loc.file, 
+                             host = rep(PEcAn.utils::fqdn(),rows), 
+                             mimetype = rep("application/x-netcdf",rows), 
+                             formatname = rep("CF Meteorology",rows),
+                             startdate = paste0(year, "-01-01 00:00:00", tz = "UTC"), 
+                             enddate = paste0(year, "-12-31 23:59:59", tz = "UTC"),
+                             dbfile.name = paste0(source_name, ".dwnsc.ens"),
+                             stringsAsFactors = FALSE)
+  
+  }
 
-# setwd(path.out)
-# for(ens in dir.compress){
-#   system(paste0("tar -jcvf ", ens, ".tar.bz2 ", ens)) # Compress the folder
-#   system(paste0("rm -rf ", ens)) # remove the uncompressed folder
-# }
-# setwd(wd.base)
-toc()
-# } # End GCM loop
+return(invisible(results))    
+}
+    
+    
+    
+    
