@@ -127,17 +127,17 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       day.now = unique(dat.temp$doy)
       
       # Set up the lags
-      if(i==max(dat.mod$time.day)){
+      if(i==min(dat.mod$time.day)){
         sim.lag <- stack(lags.init$tair)
         names(sim.lag) <- c("lag.tair", "ens")
         
         sim.lag$lag.tmin <- stack(lags.init$tmin)[,1]
         sim.lag$lag.tmax <- stack(lags.init$tmax)[,1]
       } else {
-        sim.lag <- stack(data.frame(array(dat.sim[["tair"]][dat.mod$time.day==(i+1)  & dat.mod$hour==0,], dim=c(1, ncol(dat.sim$tair)))))
+        sim.lag <- stack(data.frame(array(dat.sim[["tair"]][dat.mod$time.day==(i-1)  & dat.mod$hour==23,], dim=c(1, ncol(dat.sim$tair)))))
         names(sim.lag) <- c("lag.tair", "ens")
-        sim.lag$lag.tmin <- stack(apply(dat.sim[["tair"]][dat.mod$time.day==(i+1),], 2, min))[,1]
-        sim.lag$lag.tmax <- stack(apply(dat.sim[["tair"]][dat.mod$time.day==(i+1),], 2, max))[,1]
+        sim.lag$lag.tmin <- stack(apply(dat.sim[["tair"]][dat.mod$time.day==(i-1),], 2, min))[,1]
+        sim.lag$lag.tmax <- stack(apply(dat.sim[["tair"]][dat.mod$time.day==(i-1),], 2, max))[,1]
       }
       dat.temp <- merge(dat.temp, sim.lag, all.x=T)
       
