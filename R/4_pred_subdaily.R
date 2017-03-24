@@ -1,25 +1,4 @@
-# -----------------------------------
-# Script Information
-# -----------------------------------
-# Purpose: Create statistical models to predict subdaily meteorology from daily means
-# Creator: Christy Rollinson, 28 October 2016
-# Contact: crollinson@gmail.com
-# -----------------------------------
 
-# -----------------------------------
-# Description
-# -----------------------------------
-# Apply the statistical models from step 3 to convert the daily, bias-corrected met 
-# files from step 2 (daily means) and predict subdaily values.  This gets done by 
-# filtering backwards in time starting with the present (where the trianing data is).
-#
-
-# be sure to set up an sp here (i.e. 366 days * 24 hrs per day)
-
-# -----------------------------------
-# 0. Load libraries, set up file paths, etc
-# -----------------------------------
-# Script to prototype temporal downscaling
 library(ncdf4)
 library(mgcv)
 library(MASS)
