@@ -1,5 +1,5 @@
 model.tair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=1237){
-  library(MASS)
+  
   set.seed(seed)
   if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
   
@@ -24,7 +24,7 @@ model.tair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
     mod.coef <- coef(mod.doy)
     mod.cov  <- vcov(mod.doy)
     piv <- as.numeric(which(!is.na(mod.coef)))
-    Rbeta <- mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
+    Rbeta <- MASS::mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
     
     list.out <- list(model=mod.doy, 
                      betas=Rbeta)
@@ -38,7 +38,7 @@ model.tair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
       res.cov  <- vcov(resid.model)
       res.piv <- as.numeric(which(!is.na(res.coef)))
       
-      beta.resid <- mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
+      beta.resid <- MASS::mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
       
       list.out[["model.resid"]] <- resid.model
       list.out[["betas.resid"]] <- beta.resid
@@ -69,17 +69,17 @@ model.tair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
   if(parallel==T){
     warning("Running model calculation in parallel.  This WILL crash if you do not have access to a LOT of memory!")
     library(parallel)
-    mod.out <- mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
+    mod.out <- parallel::mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
     
     for(i in names(mod.out)){
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_tair_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out[[i]][["model"]]
@@ -91,12 +91,12 @@ model.tair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
       
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_tair_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out$mode
@@ -107,7 +107,7 @@ model.tair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
 }
 
 model.swdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=1341){
-  library(MASS)
+  
   set.seed(seed)
   if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
   # The model we're going to use
@@ -134,7 +134,7 @@ model.swdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
     mod.coef <- coef(mod.doy)
     mod.cov  <- vcov(mod.doy)
     piv <- as.numeric(which(!is.na(mod.coef)))
-    Rbeta <- mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
+    Rbeta <- MASS::mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
     
     list.out <- list(model=mod.doy, 
                      betas=Rbeta)
@@ -146,7 +146,7 @@ model.swdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
       res.cov  <- vcov(resid.model)
       res.piv <- as.numeric(which(!is.na(res.coef)))
       
-      beta.resid <- mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
+      beta.resid <- MASS::mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
       
       list.out[["model.resid"]] <- resid.model
       list.out[["betas.resid"]] <- beta.resid
@@ -178,18 +178,18 @@ model.swdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
   if(parallel==T){
     warning("Running model calculation in parallel.  This WILL crash if you do not have access to a LOT of memory!")
     library(parallel)
-    mod.out <- mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids, threshold=quantile(dat.train[dat.train$swdown>0,"swdown"], 0.05))
+    mod.out <- parallel::mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids, threshold=quantile(dat.train[dat.train$swdown>0,"swdown"], 0.05))
     
     # Use a loop to sace each day of year independently
     for(i in names(mod.out)){
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_swdown_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out[[i]][["model"]]
@@ -202,12 +202,12 @@ model.swdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
       
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_swdown_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out$mode
@@ -219,7 +219,7 @@ model.swdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
 }
 
 model.lwdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=341){
-  library(MASS)
+  
   set.seed(seed)
   if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
   
@@ -239,7 +239,7 @@ model.lwdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
     mod.coef <- coef(mod.doy)
     mod.cov  <- vcov(mod.doy)
     piv <- as.numeric(which(!is.na(mod.coef)))
-    Rbeta <- mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
+    Rbeta <- MASS::mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
     
     list.out <- list(model=mod.doy, 
                      betas=Rbeta)
@@ -251,7 +251,7 @@ model.lwdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
       res.cov  <- vcov(resid.model)
       res.piv <- as.numeric(which(!is.na(res.coef)))
       
-      beta.resid <- mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
+      beta.resid <- MASS::mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
       
       list.out[["model.resid"]] <- resid.model
       list.out[["betas.resid"]] <- beta.resid
@@ -282,18 +282,18 @@ model.lwdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
   if(parallel==T){
     library(parallel)
     warning("Running model calculation in parallel.  This WILL crash if you do not have access to a LOT of memory!")
-    mod.out <- mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
+    mod.out <- parallel::mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
     
     # Use a loop to sace each day of year independently
     for(i in names(mod.out)){
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_lwdown_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out[[i]][["model"]]
@@ -305,12 +305,12 @@ model.lwdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
       
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_lwdown_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out$mode
@@ -323,7 +323,7 @@ model.lwdown <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F,
 }
 
 model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=1347){
-  library(MASS)
+  
   set.seed(seed)
   if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
   
@@ -346,7 +346,7 @@ model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, 
     mod.coef <- coef(mod.doy)
     mod.cov  <- vcov(mod.doy)
     piv <- as.numeric(which(!is.na(mod.coef)))
-    Rbeta <- mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
+    Rbeta <- MASS::mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
     
     list.out <- list(model=mod.doy, 
                      betas=Rbeta)
@@ -358,7 +358,7 @@ model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, 
       res.cov  <- vcov(resid.model)
       res.piv <- as.numeric(which(!is.na(res.coef)))
       
-      beta.resid <- mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
+      beta.resid <- MASS::mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
       
       list.out[["model.resid"]] <- resid.model
       list.out[["betas.resid"]] <- beta.resid
@@ -390,18 +390,18 @@ model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, 
     warning("Running model calculation in parallel.  This WILL crash if you do not have access to a LOT of memory!")
     library(parallel)
     
-    mod.out <- mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
+    mod.out <- parallel::mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
     
     # Use a loop to sace each day of year independently
     for(i in names(mod.out)){
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_press_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out[[i]][["model"]]
@@ -414,12 +414,12 @@ model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, 
       
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_press_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out$mode
@@ -432,7 +432,7 @@ model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, 
 }
 
 model.wind <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=708){
-  library(MASS)
+  
   set.seed(seed)
   if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
   
@@ -453,7 +453,7 @@ model.wind <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
     mod.coef <- coef(mod.doy)
     mod.cov  <- vcov(mod.doy)
     piv <- as.numeric(which(!is.na(mod.coef)))
-    Rbeta <- mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
+    Rbeta <- MASS::mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
     
     list.out <- list(model=mod.doy, 
                      betas=Rbeta)
@@ -465,7 +465,7 @@ model.wind <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
       res.cov  <- vcov(resid.model)
       res.piv <- as.numeric(which(!is.na(res.coef)))
       
-      beta.resid <- mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
+      beta.resid <- MASS::mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
       
       list.out[["model.resid"]] <- resid.model
       list.out[["betas.resid"]] <- beta.resid
@@ -496,18 +496,18 @@ model.wind <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
   if(parallel==T){
     warning("Running model calculation in parallel.  This WILL crash if you do not have access to a LOT of memory!")
     library(parallel)
-    mod.out <- mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
+    mod.out <- parallel::mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
     
     # Use a loop to sace each day of year independently
     for(i in names(mod.out)){
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_wind_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out[[i]][["model"]]
@@ -520,12 +520,12 @@ model.wind <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
       
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_wind_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out$mode
@@ -538,7 +538,7 @@ model.wind <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
 }
 
 model.precipf <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=1562){
-  library(MASS)
+  
   # library(fitdistrplus)
   set.seed(seed)
   if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
@@ -563,7 +563,7 @@ model.precipf <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F
     mod.coef <- coef(mod.doy)
     mod.cov  <- vcov(mod.doy)
     piv <- as.numeric(which(!is.na(mod.coef)))
-    Rbeta <- mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
+    Rbeta <- MASS::mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
     
     list.out <- list(model=mod.doy, 
                      betas=Rbeta)
@@ -576,7 +576,7 @@ model.precipf <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F
       res.cov  <- vcov(resid.model)
       res.piv <- as.numeric(which(!is.na(res.coef)))
       
-      beta.resid <- mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
+      beta.resid <- MASS::mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
       
       list.out[["model.resid"]] <- resid.model
       list.out[["betas.resid"]] <- beta.resid
@@ -607,18 +607,18 @@ model.precipf <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F
   if(parallel==T){
     warning("Running model calculation in parallel.  This WILL crash if you do not have access to a LOT of memory!")
     library(parallel)
-    mod.out <- mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
+    mod.out <- parallel::mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
     
     # Use a loop to sace each day of year independently
     for(i in names(mod.out)){
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_precipf_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out[[i]][["model"]]
@@ -631,12 +631,12 @@ model.precipf <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F
       
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_precipf_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out$mode
@@ -649,7 +649,7 @@ model.precipf <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F
 }
 
 model.qair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n.cores=NULL, day.window=5, seed=1009){
-  library(MASS)
+  
   set.seed(seed)
   if(!dir.exists(path.out)) dir.create(path.out, recursive=T)
   
@@ -674,7 +674,7 @@ model.qair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
     mod.coef <- coef(mod.doy)
     mod.cov  <- vcov(mod.doy)
     piv <- as.numeric(which(!is.na(mod.coef)))
-    Rbeta <- mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
+    Rbeta <- MASS::mvrnorm(n=n.beta, mod.coef[piv], mod.cov)
     
     list.out <- list(model=mod.doy, 
                      betas=Rbeta)
@@ -686,7 +686,7 @@ model.qair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
       res.cov  <- vcov(resid.model)
       res.piv <- as.numeric(which(!is.na(res.coef)))
       
-      beta.resid <- mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
+      beta.resid <- MASS::mvrnorm(n=n.beta, res.coef[res.piv], res.cov)
       
       list.out[["model.resid"]] <- resid.model
       list.out[["betas.resid"]] <- beta.resid
@@ -717,18 +717,18 @@ model.qair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
   if(parallel==T){
     warning("Running model calculation in parallel.  This WILL crash if you do not have access to a LOT of memory!")
     library(parallel)
-    mod.out <- mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
+    mod.out <- parallel::mclapply(dat.list, model.train, mc.cores=n.cores, n.beta=n.beta, resids=resids)
     
     # Use a loop to sace each day of year independently
     for(i in names(mod.out)){
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_qair_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[[i]][["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[[i]][["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[[i]][["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out[[i]][["model"]]
@@ -741,12 +741,12 @@ model.qair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
       
       # Save the betas as .nc
       outfile=file.path(path.out, paste0("betas_qair_", i, ".nc"))
-      dimY <- ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
-      dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
-      var.list <- ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
-      nc <- nc_create(outfile, var.list)
-      ncvar_put(nc, var.list, mod.out[["betas"]])
-      nc_close(nc)
+      dimY <- ncdf4::ncdim_def( paste0("coeffs_", i), units="unitless", longname="model.out coefficients", vals=1:ncol(mod.out[["betas"]]))
+      dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(mod.out[["betas"]]))
+      var.list <- ncdf4::ncvar_def(i, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", i, " model.out coefficients"))
+      nc <- ncdf4::nc_create(outfile, var.list)
+      ncdf4::ncvar_put(nc, var.list, mod.out[["betas"]])
+      ncdf4::nc_close(nc)
       
       # Save the model as a .Rdata
       mod.save <- mod.out$mode
@@ -803,21 +803,21 @@ save.betas <- function(model.out, betas, outfile){
   for(v in names(model.out)){
     # Note: Need a separate list of coefficients for each variable to make my life easier if the is swdown which has varying
     #       predictors by day
-    dimY <- ncdim_def( paste0("coeffs_", v), units="unitless", longname="model.out coefficients", vals=1:ncol(model.out[[v]][[betas]]))
-    dimX <- ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(model.out[[v]][[betas]]))
+    dimY <- ncdf4::ncdim_def( paste0("coeffs_", v), units="unitless", longname="model.out coefficients", vals=1:ncol(model.out[[v]][[betas]]))
+    dimX <- ncdf4::ncdim_def( "random", units="unitless", longname="random betas", vals=1:nrow(model.out[[v]][[betas]]))
     
-    var.list[[v]] <- ncvar_def(v, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", v, " model.out coefficients"))
+    var.list[[v]] <- ncdf4::ncvar_def(v, units="coefficients", dim=list(dimX, dimY), longname=paste0("day ", v, " model.out coefficients"))
   }
   
-  # dim.string <- ncdim_def("names", "", 1:max(nchar(names.coefs)), create_dimvar=FALSE)
-  # var.list[["names.coefs"]] <- ncvar_def("names.coefs", units="", dim=list(dim.string, dimY), longname="model coefficient names", prec="char")
+  # dim.string <- ncdf4::ncdim_def("names", "", 1:max(nchar(names.coefs)), create_dimvar=FALSE)
+  # var.list[["names.coefs"]] <- ncdf4::ncvar_def("names.coefs", units="", dim=list(dim.string, dimY), longname="model coefficient names", prec="char")
   
-  nc <- nc_create(outfile, var.list)
-  # ncvar_put(nc, var.list$names.coefs, names.coefs)
+  nc <- ncdf4::nc_create(outfile, var.list)
+  # ncdf4::ncvar_put(nc, var.list$names.coefs, names.coefs)
   for(v in names(model.out)) {
-    ncvar_put(nc, var.list[[v]], model.out[[v]][[betas]])
+    ncdf4::ncvar_put(nc, var.list[[v]], model.out[[v]][[betas]])
   }
-  nc_close(nc)    
+  ncdf4::nc_close(nc)    
   
   
 } 
