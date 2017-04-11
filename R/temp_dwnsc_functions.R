@@ -364,6 +364,13 @@ model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, 
       list.out[["betas.resid"]] <- beta.resid
     }
     
+    # bernoulli distribution for precipitation 
+    # megan kirkmeyer young paper on evaluation of probabalistic downscaling, look at likelihood, it would be nice to show
+    # the probablistic nature of temporal downscaling, talk about the range of things that could be occuring at that time.
+    # lOok at threshold excedence, linear regression optimizes your R squared so don't do that, plot the f value, the ratio of variance,
+    # f values should show that you reproduce the variance. it really highlights keeping the noise in there and just saying there is a 
+    # 1 to 1 relationship
+    # log likelihood ratios for each month/season, month by month looks good too
     return(list.out)
   }
   

@@ -1,9 +1,10 @@
-
 ##' Create statistical models to predict subdaily meteorology from daily means
 ##' 
-##' @param outfolder - directory where models will be stored
-##' @param dat.train - training dataset created by CF2traindata.R
-##' @param tdf_filepath - temporal_downscale_functions.R path 
+##' @title gen_subdaily_models
+##' @param outfolder - directory where models will be stored *** storage required varies by size of training dataset, but prepare for >100 GB
+##' @param in.path - filepath to training dataset created by CF2traindata.R
+##' @param in.prefix - prefix of train_data, i.e. if file is US-WCr_train_data, prefix is "US-WCr"
+##' @param tdf_filepath - temporal_downscale_functions.R filepath that can be sourced i.e. "~/scripts/temporal_downscale_functions.R"
 ##' @param n.beta - number of betas to save from linear regression model
 ##' @param resids - logical stating whether to pass on residual data or not
 ##' @param parallel - logical stating whether to run temporal_downscale_functions.R in parallel 
@@ -15,17 +16,13 @@
 
 ##' @author Christy Rollinson, James Simkins
 
-gen_subdaily_models <- function(outfolder, dat.train, tdf_filepath, n.beta,
+gen_subdaily_models <- function(outfolder, in.path, in.prefix, tdf_filepath, n.beta,
                                 resids=F, parallel=F, n.cores=NULL, day.window,
                                 overwrite = TRUE, verbose = FALSE){
   # ------------------------------------------
   # 0 Load Libraries, set up file directories
   # ------------------------------------------
   # Script to prototype temporal downscaling
-  library(ncdf4)
-  library(mgcv)
-  library(MASS)
-  library(lubridate)
 
   # ------------------------------------------
   # 1. Load and format training data
@@ -34,7 +31,8 @@ gen_subdaily_models <- function(outfolder, dat.train, tdf_filepath, n.beta,
   # 1.0 Read data & Make time stamps
   # ----------
     # Load the data
-  dat.train <- read.csv("~/US-WCr_traindata")
+  train_path = file.path(in.path, paste0(in.prefix, "_train_data"))
+  dat.train <- read.csv(train_path)
   
   dat.train$date <- strptime(paste(dat.train$year, dat.train$doy+1, dat.train$hour, sep="-"), "%Y-%j-%H", tz="GMT")
   dat.train$time.hr <- as.numeric(difftime(dat.train$date, paste0((min(dat.train$year)-1),"-12-31 23:00:00"), tz="GMT", units="hour"))
@@ -125,24 +123,24 @@ gen_subdaily_models <- function(outfolder, dat.train, tdf_filepath, n.beta,
   #       values makes it difficult for the linear regression model to calculate coefficients sometimes
   # ---------
   
-  mod.tair.doy    <- model.tair   (dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=outfolder, n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.tair.doy    <- model.tair   (dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=paste0(outfolder,in.prefix, "/model.tair"), n.cores=n.cores, n.beta=n.beta, day.window=5)
   rm(mod.tair.doy)
   
-  mod.precipf.doy <- model.precipf(dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=outfolder, n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.precipf.doy <- model.precipf(dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=paste0(outfolder,in.prefix, "/model.precipf"), n.cores=n.cores, n.beta=n.beta, day.window=5)
   rm(mod.precipf.doy)
   
-  mod.swdown.doy  <- model.swdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=outfolder,n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.swdown.doy  <- model.swdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.swdown"),n.cores=n.cores, n.beta=n.beta, day.window=5)
   rm(mod.swdown.doy)
   
-  mod.lwdown.doy  <- model.lwdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=outfolder,n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.lwdown.doy  <- model.lwdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.lwdown"),n.cores=n.cores, n.beta=n.beta, day.window=5)
   rm(mod.lwdown.doy)
   
-  mod.press.doy   <- model.press  (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=outfolder,n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.press.doy   <- model.press  (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.press"),n.cores=n.cores, n.beta=n.beta, day.window=5)
   rm(mod.press.doy)
   
-  mod.qair.doy    <- model.qair   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=outfolder,n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.qair.doy    <- model.qair   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.qair"),n.cores=n.cores, n.beta=n.beta, day.window=5)
   rm(mod.qair.doy)
   
-  mod.wind.doy    <- model.wind   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=outfolder,n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.wind.doy    <- model.wind   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.wind"),n.cores=n.cores, n.beta=n.beta, day.window=5)
   rm(mod.wind.doy)
 }
