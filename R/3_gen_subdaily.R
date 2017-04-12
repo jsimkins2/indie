@@ -4,7 +4,7 @@
 ##' @param outfolder - directory where models will be stored *** storage required varies by size of training dataset, but prepare for >100 GB
 ##' @param in.path - filepath to training dataset created by CF2traindata.R
 ##' @param in.prefix - prefix of train_data, i.e. if file is US-WCr_train_data, prefix is "US-WCr"
-##' @param tdf_filepath - temporal_downscale_functions.R filepath that can be sourced i.e. "~/scripts/temporal_downscale_functions.R"
+##' @param tdf_file - temporal_downscale_functions.R filepath that can be sourced i.e. "~/scripts/temporal_downscale_functions.R"
 ##' @param n.beta - number of betas to save from linear regression model
 ##' @param resids - logical stating whether to pass on residual data or not
 ##' @param parallel - logical stating whether to run temporal_downscale_functions.R in parallel 
@@ -16,7 +16,7 @@
 
 ##' @author Christy Rollinson, James Simkins
 
-gen_subdaily_models <- function(outfolder, in.path, in.prefix, tdf_filepath, n.beta,
+gen_subdaily_models <- function(outfolder, in.path, in.prefix, tdf_file, n.beta,
                                 resids=F, parallel=F, n.cores=NULL, day.window,
                                 overwrite = TRUE, verbose = FALSE){
   # ------------------------------------------
@@ -113,7 +113,8 @@ gen_subdaily_models <- function(outfolder, in.path, in.prefix, tdf_filepath, n.b
   # ------------------------------------------
   # 2 Train the models for each variable and save them to be read in as needed
   # ------------------------------------------
-  source(tdf_filepath)
+  source(tdf_file)
+
   
   # ---------
   # 2.1 Generating all the daily models, save the output as .Rdata files, then clear memory
@@ -123,24 +124,24 @@ gen_subdaily_models <- function(outfolder, in.path, in.prefix, tdf_filepath, n.b
   #       values makes it difficult for the linear regression model to calculate coefficients sometimes
   # ---------
   
-  mod.tair.doy    <- model.tair   (dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=paste0(outfolder,in.prefix, "/model.tair"), n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.tair.doy    <- model.tair   (dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=paste0(outfolder,in.prefix, "/tair"), n.cores=n.cores, n.beta=n.beta, day.window=day.window)
   rm(mod.tair.doy)
-  
-  mod.precipf.doy <- model.precipf(dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=paste0(outfolder,in.prefix, "/model.precipf"), n.cores=n.cores, n.beta=n.beta, day.window=5)
+
+  mod.precipf.doy <- model.precipf(dat.train=dat.train[,], resids=resids, parallel=parallel,path.out=paste0(outfolder,in.prefix, "/precipf"), n.cores=n.cores, n.beta=n.beta, day.window=day.window)
   rm(mod.precipf.doy)
-  
-  mod.swdown.doy  <- model.swdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.swdown"),n.cores=n.cores, n.beta=n.beta, day.window=5)
+
+  mod.swdown.doy  <- model.swdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/swdown"),n.cores=n.cores, n.beta=n.beta, day.window=day.window)
   rm(mod.swdown.doy)
-  
-  mod.lwdown.doy  <- model.lwdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.lwdown"),n.cores=n.cores, n.beta=n.beta, day.window=5)
+
+  mod.lwdown.doy  <- model.lwdown (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/lwdown"),n.cores=n.cores, n.beta=n.beta, day.window=day.window)
   rm(mod.lwdown.doy)
-  
-  mod.press.doy   <- model.press  (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.press"),n.cores=n.cores, n.beta=n.beta, day.window=5)
+
+  mod.press.doy   <- model.press  (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/press"),n.cores=n.cores, n.beta=n.beta, day.window=day.window)
   rm(mod.press.doy)
   
-  mod.qair.doy    <- model.qair   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.qair"),n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.qair.doy    <- model.qair   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/qair"),n.cores=n.cores, n.beta=n.beta, day.window=day.window)
   rm(mod.qair.doy)
   
-  mod.wind.doy    <- model.wind   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.wind"),n.cores=n.cores, n.beta=n.beta, day.window=5)
+  mod.wind.doy    <- model.wind   (dat.train=dat.train[,], resids=resids, parallel=parallel, path.out=paste0(outfolder,in.prefix, "/model.wind"),n.cores=n.cores, n.beta=n.beta, day.window=day.window)
   rm(mod.wind.doy)
 }

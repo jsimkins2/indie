@@ -50,10 +50,13 @@ model.tair <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, n
   dat.list <- list()
   mod.out <- list()
   
+
   # Make the data into a list
   # Training the model on ax X-day window around the actual DOY we're trying to model
   # this helps avoid problems with lack of data in small datasets like Ameriflux
   # Default window is 5 days (+/- 2)
+  
+  
   for(i in unique(dat.train$doy)){
     if(i >= 365){ # Lump leap day in with non-leap Dec 31
       dat.list[[paste(i)]] <- dat.train[dat.train$doy>=365-day.window/2 | dat.train$doy<=day.window/2,]
@@ -332,7 +335,7 @@ model.press <- function(dat.train, n.beta=1000, path.out, resids=F, parallel=F, 
     
     # mod.doy <- lm(press ~ as.factor(hour)*(press.day + lag.press + next.press)-as.factor(hour)-1, data=dat.subset) ###
     mod.doy <- lm(press ~ as.factor(hour)*(press.day + lag.press + next.press)-as.factor(hour)-1-press.day - lag.press - next.press, data=dat.subset) ###
-    
+  
     # If we can't estimate the covariance matrix, double our data and try again
     # NOTE: THIS IS NOT A GOOD PERMANENT FIX!!
     if(is.na(summary(mod.doy)$adj.r.squared)){

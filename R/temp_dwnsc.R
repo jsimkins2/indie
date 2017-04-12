@@ -19,23 +19,15 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # #    2.7 wind (surface wind speed)
   # --------------------------------# 
   # Load libraries
-  library(ncdf4)
-  library(mgcv)
-  library(MASS)
-  # library(lubridate)
-  library(ggplot2)
-  # library(tictoc)
-  
-  
-  
-  path.model="~/Christy_code/WCr_training_model"
-  dat.mod = dat.ens
-  n.ens = 3
-  
+  #library(ncdf4)
+  #library(mgcv)
+  #library(MASS)
+  #library(ggplot2)
+
   # Figure out if we need to extract the approrpiate 
-  if(is.null(lags.init)){
-    lags.init <- lags.list[[unique(dat.mod$ens.day)]]
-  }
+  #if(is.null(lags.init)){
+    #lags.init <- lags.list[[unique(dat.mod$ens.day)]]
+  #}
   
   # Set up the ensemble members in a list so the uncertainty can be propogated
   dat.sim <- list() 
