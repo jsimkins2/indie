@@ -180,7 +180,7 @@ nc2traindata <- function(in.path, in.prefix, outfolder, start_date, end_date,
   rm(raw_train_data)
   rm(train_df)
   
-  outfile = paste0(in.prefix, "_train_data")
+  outfile = paste0(in.prefix, "_dat.train")
   write.csv(x = dat.train,file = outfile, row.names = FALSE)
   
 }

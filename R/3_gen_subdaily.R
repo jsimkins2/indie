@@ -2,8 +2,7 @@
 ##' 
 ##' @title gen_subdaily_models
 ##' @param outfolder - directory where models will be stored *** storage required varies by size of training dataset, but prepare for >100 GB
-##' @param in.path - filepath to training dataset created by CF2traindata.R
-##' @param in.prefix - prefix of train_data, i.e. if file is US-WCr_train_data, prefix is "US-WCr"
+##' @param dat.train_file - train_data file
 ##' @param tdf_file - temporal_downscale_functions.R filepath that can be sourced i.e. "~/scripts/temporal_downscale_functions.R"
 ##' @param n.beta - number of betas to save from linear regression model
 ##' @param resids - logical stating whether to pass on residual data or not
@@ -16,7 +15,7 @@
 
 ##' @author Christy Rollinson, James Simkins
 
-gen_subdaily_models <- function(outfolder, in.path, in.prefix, tdf_file, n.beta,
+gen_subdaily_models <- function(outfolder, dat.train_file, tdf_file, n.beta,
                                 resids=F, parallel=F, n.cores=NULL, day.window,
                                 overwrite = TRUE, verbose = FALSE){
   # ------------------------------------------
@@ -31,8 +30,7 @@ gen_subdaily_models <- function(outfolder, in.path, in.prefix, tdf_file, n.beta,
   # 1.0 Read data & Make time stamps
   # ----------
     # Load the data
-  train_path = file.path(in.path, paste0(in.prefix, "_train_data"))
-  dat.train <- read.csv(train_path)
+  dat.train <- read.csv(dat.train_file)
   
   dat.train$date <- strptime(paste(dat.train$year, dat.train$doy+1, dat.train$hour, sep="-"), "%Y-%j-%H", tz="GMT")
   dat.train$time.hr <- as.numeric(difftime(dat.train$date, paste0((min(dat.train$year)-1),"-12-31 23:00:00"), tz="GMT", units="hour"))

@@ -25,9 +25,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   #library(ggplot2)
 
   # Figure out if we need to extract the approrpiate 
-  #if(is.null(lags.init)){
-    #lags.init <- lags.list[[unique(dat.mod$ens.day)]]
-  #}
+  if(is.null(lags.init)){
+    lags.init <- lags.list[[unique(dat.mod$ens.day)]]
+  }
   
   # Set up the ensemble members in a list so the uncertainty can be propogated
   dat.sim <- list() 
@@ -40,9 +40,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the meta info for the betas
-    betas.swdown <- nc_open(file.path(path.model, "swdown", "betas_swdown_1.nc"))
-    n.beta <- nrow(ncvar_get(betas.swdown, "1"))
-    nc_close(betas.swdown)
+    betas.swdown <- ncdf4::nc_open(file.path(path.model, "swdown", "betas_swdown_1.nc"))
+    n.beta <- nrow(ncdf4::ncvar_get(betas.swdown, "1"))
+    ncdf4::nc_close(betas.swdown)
     
     dat.sim[["swdown"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -70,9 +70,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # Pull coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.swdown <- nc_open(file.path(path.model, "swdown", paste0("betas_swdown_", day.now, ".nc")))
-      Rbeta <- as.matrix(ncvar_get(betas.swdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      nc_close(betas.swdown)
+      betas.swdown <- ncdf4::nc_open(file.path(path.model, "swdown", paste0("betas_swdown_", day.now, ".nc")))
+      Rbeta <- as.matrix(ncdf4::ncvar_get(betas.swdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      ncdf4::nc_close(betas.swdown)
       
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.swdown.doy, 
@@ -104,9 +104,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
     # Load the saved model
     # Load the meta info for the betas
     
-    betas.tair <- nc_open(file.path(path.model, "tair", "betas_tair_1.nc"))
-    n.beta <- nrow(ncvar_get(betas.tair, "1"))
-    nc_close(betas.tair)
+    betas.tair <- ncdf4::nc_open(file.path(path.model, "tair", "betas_tair_1.nc"))
+    n.beta <- nrow(ncdf4::ncvar_get(betas.tair, "1"))
+    ncdf4::nc_close(betas.tair)
     
     dat.sim[["tair"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -142,9 +142,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # Pull coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.tair <- nc_open(file.path(path.model, "tair", paste0("betas_tair_", day.now, ".nc")))
-      Rbeta <- as.matrix(ncvar_get(betas.tair, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      nc_close(betas.tair)
+      betas.tair <- ncdf4::nc_open(file.path(path.model, "tair", paste0("betas_tair_", day.now, ".nc")))
+      Rbeta <- as.matrix(ncdf4::ncvar_get(betas.tair, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      ncdf4::nc_close(betas.tair)
       
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.tair.doy, 
@@ -185,9 +185,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the meta info for the betas
-    betas.precipf <- nc_open(file.path(path.model, "precipf", "betas_precipf_1.nc"))
-    n.beta <- nrow(ncvar_get(betas.precipf, "1"))
-    nc_close(betas.precipf)
+    betas.precipf <- ncdf4::nc_open(file.path(path.model, "precipf", "betas_precipf_1.nc"))
+    n.beta <- nrow(ncdf4::ncvar_get(betas.precipf, "1"))
+    ncdf4::nc_close(betas.precipf)
     
     dat.sim[["precipf"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -218,9 +218,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.precipf <- nc_open(file.path(path.model, "precipf", paste0("betas_precipf_", day.now, ".nc")))
-      Rbeta <- as.matrix(ncvar_get(betas.precipf, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      nc_close(betas.precipf)
+      betas.precipf <- ncdf4::nc_open(file.path(path.model, "precipf", paste0("betas_precipf_", day.now, ".nc")))
+      Rbeta <- as.matrix(ncdf4::ncvar_get(betas.precipf, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      ncdf4::nc_close(betas.precipf)
       
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.precipf.doy, 
@@ -266,9 +266,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the meta info for the betas
-    betas.lwdown <- nc_open(file.path(path.model,"lwdown", "betas_lwdown_1.nc"))
-    n.beta <- nrow(ncvar_get(betas.lwdown, "1"))
-    nc_close(n.beta)
+    betas.lwdown <- ncdf4::nc_open(file.path(path.model,"lwdown", "betas_lwdown_1.nc"))
+    n.beta <- nrow(ncdf4::ncvar_get(betas.lwdown, "1"))
+    ncdf4::nc_close(n.beta)
     
     dat.sim[["lwdown"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -302,9 +302,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.lwdown <- nc_open(file.path(path.model,"lwdown", "betas_lwdown_1.nc"))
-      Rbeta <- as.matrix(ncvar_get(betas.lwdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      nc_close(betas.lwdown)
+      betas.lwdown <- ncdf4::nc_open(file.path(path.model,"lwdown", "betas_lwdown_1.nc"))
+      Rbeta <- as.matrix(ncdf4::ncvar_get(betas.lwdown, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      ncdf4::nc_close(betas.lwdown)
       
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.lwdown.doy, 
@@ -339,9 +339,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the meta info for the betas
-    betas.press <- nc_open(file.path(path.model, "press", "betas_press_1.nc"))
-    n.beta <- nrow(ncvar_get(betas.press, "1"))
-    nc_close(betas.press)
+    betas.press <- ncdf4::nc_open(file.path(path.model, "press", "betas_press_1.nc"))
+    n.beta <- nrow(ncdf4::ncvar_get(betas.press, "1"))
+    ncdf4::nc_close(betas.press)
     
     dat.sim[["press"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -371,9 +371,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.press <- nc_open(file.path(path.model, "press", paste0("betas_press_", day.now, ".nc")))
-      Rbeta <- as.matrix(ncvar_get(betas.press, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      nc_close(betas.press)
+      betas.press <- ncdf4::nc_open(file.path(path.model, "press", paste0("betas_press_", day.now, ".nc")))
+      Rbeta <- as.matrix(ncdf4::ncvar_get(betas.press, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      ncdf4::nc_close(betas.press)
       
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.press.doy, 
@@ -399,9 +399,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the meta info for the betas
-    betas.qair <- nc_open(file.path(path.model, "qair", "betas_qair_1.nc"))
-    n.beta <- nrow(ncvar_get(betas.qair, "1"))
-    nc_close(betas.qair)
+    betas.qair <- ncdf4::nc_open(file.path(path.model, "qair", "betas_qair_1.nc"))
+    n.beta <- nrow(ncdf4::ncvar_get(betas.qair, "1"))
+    ncdf4::nc_close(betas.qair)
     
     dat.sim[["qair"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -430,9 +430,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.qair <- nc_open(file.path(path.model, "qair", paste0("betas_qair_", day.now, ".nc")))
-      Rbeta <- as.matrix(ncvar_get(betas.qair, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      nc_close(betas.qair)
+      betas.qair <- ncdf4::nc_open(file.path(path.model, "qair", paste0("betas_qair_", day.now, ".nc")))
+      Rbeta <- as.matrix(ncdf4::ncvar_get(betas.qair, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      ncdf4::nc_close(betas.qair)
       
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.qair.doy, 
@@ -465,9 +465,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
   # ------------------------------------------
   {
     # Load the meta info for the betas
-    betas.wind <- nc_open(file.path(path.model, "wind", "betas_wind_1.nc"))
-    n.beta <- nrow(ncvar_get(betas.wind, "1"))
-    nc_close(betas.wind)
+    betas.wind <- ncdf4::nc_open(file.path(path.model, "wind", "betas_wind_1.nc"))
+    n.beta <- nrow(ncdf4::ncvar_get(betas.wind, "1"))
+    ncdf4::nc_close(betas.wind)
     
     dat.sim[["wind"]] <- data.frame(array(dim=c(nrow(dat.mod), n.ens)))
     
@@ -496,9 +496,9 @@ predict.subdaily <- function(dat.mod, n.ens, path.model, lags.list=NULL, lags.in
       
       # Pull the coefficients (betas) from our saved matrix
       rows.beta <- sample(1:n.beta, n.ens, replace=T)
-      betas.wind <- nc_open(file.path(path.model, "wind", paste0("betas_wind_", day.now, ".nc")))
-      Rbeta <- as.matrix(ncvar_get(betas.wind, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
-      nc_close(betas.wind)
+      betas.wind <- ncdf4::nc_open(file.path(path.model, "wind", paste0("betas_wind_", day.now, ".nc")))
+      Rbeta <- as.matrix(ncdf4::ncvar_get(betas.wind, paste(day.now))[rows.beta,], nrow=length(rows.beta), ncol=ncol(betas))
+      ncdf4::nc_close(betas.wind)
       
       dat.pred <- predict.met(newdata=dat.temp, 
                               model.predict=mod.wind.doy, 

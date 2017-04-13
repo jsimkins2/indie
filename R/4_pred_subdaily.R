@@ -5,6 +5,7 @@
 ##' @param in.path - path to model dataset you wish to temporally downscale
 ##' @param in.prefix - prefix of model dataset, i.e. if file is GFDL.CM3.rcp45.r1i1p1.2006 the prefix is "GFDL.CM3.rcp45.r1i1p1"
 ##' @param dat.train_file - location of train_data file
+##' @param lm.models.base - path to linear regression model folder from 3_gen_subdaily
 ##' @param start_date
 ##' @param end_date
 ##' @param tdf_file - temporal_downscale_functions.R filepath that can be sourced i.e. "~/scripts/temporal_downscale_functions.R"
@@ -14,7 +15,6 @@
 ##' @param lon.in - longitude as numeric
 ##' @param ens.hr - integer selecting number of hourly ensemble members 
 ##' @param n.day - 1 # Number of daily ensemble members to process, must be 1 because not passing in daily ensemble
-##' @param years.sim - NULL
 ##' @param cores.max - 12
 ##' @param resids - logical stating whether to pass on residual data or not
 ##' @param parallel - logical stating whether to run temporal_downscale_functions.R in parallel 
@@ -27,35 +27,10 @@
 ##' @author Christy Rollinson, James Simkins
 ##' 
 
-pred_subdaily_met <- function(outfolder, in.path, in.prefix, dat.train_file, start_date, end_date, 
-                              tdf_file, td_file, site.name, lat.in, lon.in,
-                              years.sim = NULL, cores.max = 12,  
-                              ens.hr = 3, n.day = 1, resids = FALSE, 
-                              parallel = FALSE, n.cores=NULL, day.window) {
-  
-  outfolder = "~"
-  in.path = "~_site_0-2"
-  in.prefix = "MACA.IPSL-CM5A-LR.rcp85.r1i1p1"
-  dat.train_file = "US-WCr_train_data"
-  start_date = "2019-01-01"
-  end_date = "2022-12-31"
-  tdf_file = "Temp_downscale/Scripts/temp_dwnsc_functions.R"
-  td_file = "Temp_downscale/Scripts/temp_dwnsc.R"
-  site.name = "US-WCr"
-  site.lat = 45
-  site.lon = -90
-  day.window = 5
-  years.sim = NULL
-  cores.max = 12
-  ens.hr = 3
-  n.day = 1
-  resids = FALSE
-  parallel = FALSE
-  n.cores = NULL
-  lm.models.base = "sf_scratch/US-WCr/"
-  
-  lat.in = 45
-  lon.in = -90
+pred_subdaily_met <- function(outfolder, in.path, in.prefix, lm.models.base, dat.train_file, 
+                              start_date, end_date, tdf_file, td_file, site.name, lat.in, lon.in,  
+                              cores.max = 12, ens.hr = 3, n.day = 1, resids = FALSE, 
+                              parallel = FALSE, n.cores=NULL) {
   
   years = seq(lubridate::year(start_date), lubridate::year(end_date))
 
@@ -122,20 +97,20 @@ pred_subdaily_met <- function(outfolder, in.path, in.prefix, dat.train_file, sta
     # by doing this, will they get updated in temp_dwnsc.??? 
   
       
-    nc.now <- nc_open(path.gcm)
+    nc.now <- ncdf4::nc_open(path.gcm)
     # tair.init    <- dat.out.full$met.bias[dat.out.full$met.bias$year==max(years.sim) & dat.out.full$met.bias$doy==364,"tair"]
-    nc.time <- ncvar_get(nc.now, "time")
-    tmax.init    <- ncvar_get(nc.now, "air_temperature_max")[length(nc.time)]
-    tmin.init    <- ncvar_get(nc.now, "air_temperature_min")[length(nc.time)]
-    precipf.init <- ncvar_get(nc.now, "precipitation_flux")[length(nc.time)]
-    swdown.init  <- ncvar_get(nc.now, "surface_downwelling_shortwave_flux_in_air")[length(nc.time)]
-    lwdown.init  <- ncvar_get(nc.now, "surface_downwelling_longwave_flux_in_air")[length(nc.time)]
-    press.init   <- ncvar_get(nc.now, "air_pressure")[length(nc.time)]
-    qair.init    <- ncvar_get(nc.now, "specific_humidity")[length(nc.time)]
-    nwind.init    <- ncvar_get(nc.now, "northward_wind")[length(nc.time)]
-    ewind.init <- ncvar_get(nc.now, "eastward_wind")[length(nc.time)]
+    nc.time <- ncdf4::ncvar_get(nc.now, "time")
+    tmax.init    <- ncdf4::ncvar_get(nc.now, "air_temperature_max")[length(nc.time)]
+    tmin.init    <- ncdf4::ncvar_get(nc.now, "air_temperature_min")[length(nc.time)]
+    precipf.init <- ncdf4::ncvar_get(nc.now, "precipitation_flux")[length(nc.time)]
+    swdown.init  <- ncdf4::ncvar_get(nc.now, "surface_downwelling_shortwave_flux_in_air")[length(nc.time)]
+    lwdown.init  <- ncdf4::ncvar_get(nc.now, "surface_downwelling_longwave_flux_in_air")[length(nc.time)]
+    press.init   <- ncdf4::ncvar_get(nc.now, "air_pressure")[length(nc.time)]
+    qair.init    <- ncdf4::ncvar_get(nc.now, "specific_humidity")[length(nc.time)]
+    nwind.init    <- ncdf4::ncvar_get(nc.now, "northward_wind")[length(nc.time)]
+    ewind.init <- ncdf4::ncvar_get(nc.now, "eastward_wind")[length(nc.time)]
     wind.init <- sqrt(nwind.init^2 + ewind.init^2)
-    nc_close(nc.now)
+    ncdf4::nc_close(nc.now)
 
     lags.init[["tair"   ]] <- data.frame(array(mean(c(tmax.init, tmin.init)), dim=c(1, ens.hr)))
     lags.init[["tmax"   ]] <- data.frame(array(tmax.init   , dim=c(1, ens.hr)))
@@ -153,26 +128,26 @@ pred_subdaily_met <- function(outfolder, in.path, in.prefix, dat.train_file, sta
     ens.sims <- list() # this will propogate that spread through each year, so instead of 
     # restarting every January 1, it will propogate those lag values
     # Create a list layer for each ensemble member
-    nc.now <- nc_open(path.gcm)
-    dat.yr <- data.frame(time    = ncvar_get(nc.now, "time"   ),
-                         tmax    = ncvar_get(nc.now, "air_temperature_max"   ),
-                         tmin    = ncvar_get(nc.now, "air_temperature_min"   ),
-                         precipf = ncvar_get(nc.now, "precipitation_flux"),
-                         swdown  = ncvar_get(nc.now, "surface_downwelling_shortwave_flux_in_air" ),
-                         lwdown  = ncvar_get(nc.now, "surface_downwelling_longwave_flux_in_air" ),
-                         press   = ncvar_get(nc.now, "air_pressure" ),
-                         qair    = ncvar_get(nc.now, "specific_humidity"   ),
-                         ewind    = ncvar_get(nc.now, "eastward_wind"   ),
-                         nwind    = ncvar_get(nc.now, "northward_wind"   )
+    nc.now <- ncdf4::nc_open(path.gcm)
+    dat.yr <- data.frame(time    = ncdf4::ncvar_get(nc.now, "time"   ),
+                         tmax    = ncdf4::ncvar_get(nc.now, "air_temperature_max"   ),
+                         tmin    = ncdf4::ncvar_get(nc.now, "air_temperature_min"   ),
+                         precipf = ncdf4::ncvar_get(nc.now, "precipitation_flux"),
+                         swdown  = ncdf4::ncvar_get(nc.now, "surface_downwelling_shortwave_flux_in_air" ),
+                         lwdown  = ncdf4::ncvar_get(nc.now, "surface_downwelling_longwave_flux_in_air" ),
+                         press   = ncdf4::ncvar_get(nc.now, "air_pressure" ),
+                         qair    = ncdf4::ncvar_get(nc.now, "specific_humidity"   ),
+                         ewind    = ncdf4::ncvar_get(nc.now, "eastward_wind"   ),
+                         nwind    = ncdf4::ncvar_get(nc.now, "northward_wind"   )
                          
     )
     dat.yr$wind = sqrt(dat.yr$ewind^2+dat.yr$nwind^2)
-    nc_close(nc.now)
+    ncdf4::nc_close(nc.now)
     
     # Do some stuff to get the right time variables for dat.yr
     dat.yr$year <- y
-    dat.yr$date <- as.Date(dat.yr$time/86400, origin= paste0(y,"-12-31")) #doy needs to start at 1 here, not 0
-    dat.yr$doy <- yday(dat.yr$date)
+    dat.yr$date <- as.Date(dat.yr$time/86400, origin= paste0(y-1,"-12-31")) #doy needs to start at 1 here, not 0
+    dat.yr$doy <- lubridate::yday(dat.yr$date)
     
     # Create the data frame for the "next" values
     dat.nxt <- dat.yr
@@ -188,21 +163,21 @@ pred_subdaily_met <- function(outfolder, in.path, in.prefix, dat.train_file, sta
     # Note: if we're past the end of our daily data, the best we can do is leave things as is (copy the last day's value)
     if(y>min(years)){
       
-      nc.nxt <- nc_open(path.gcm)
+      nc.nxt <- ncdf4::nc_open(path.gcm)
       # tair.init    <- dat.out.full$met.bias[dat.out.full$met.bias$year==max(years.sim) & dat.out.full$met.bias$doy==364,"tair"]
-      nxt.time <- ncvar_get(nc.nxt, "time")
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"tmax"   ] <- ncvar_get(nc.nxt, "air_temperature_max")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"tmin"   ] <- ncvar_get(nc.nxt, "air_temperature_min")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"precipf"] <- ncvar_get(nc.nxt, "precipitation_flux")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"swdown" ] <- ncvar_get(nc.nxt, "surface_downwelling_shortwave_flux_in_air")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"lwdown" ] <- ncvar_get(nc.nxt, "surface_downwelling_longwave_flux_in_air")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"press"  ] <- ncvar_get(nc.nxt, "air_pressure")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"qair"   ] <- ncvar_get(nc.nxt, "specific_humidity")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"ewind"  ] <- ncvar_get(nc.nxt, "eastward_wind")[length(nxt.time)]
-      dat.nxt[dat.nxt$time==min(dat.nxt$time),"nwind"  ] <- ncvar_get(nc.nxt, "northward_wind")[length(nxt.time)]
+      nxt.time <- ncdf4::ncvar_get(nc.nxt, "time")
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"tmax"   ] <- ncdf4::ncvar_get(nc.nxt, "air_temperature_max")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"tmin"   ] <- ncdf4::ncvar_get(nc.nxt, "air_temperature_min")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"precipf"] <- ncdf4::ncvar_get(nc.nxt, "precipitation_flux")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"swdown" ] <- ncdf4::ncvar_get(nc.nxt, "surface_downwelling_shortwave_flux_in_air")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"lwdown" ] <- ncdf4::ncvar_get(nc.nxt, "surface_downwelling_longwave_flux_in_air")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"press"  ] <- ncdf4::ncvar_get(nc.nxt, "air_pressure")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"qair"   ] <- ncdf4::ncvar_get(nc.nxt, "specific_humidity")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"ewind"  ] <- ncdf4::ncvar_get(nc.nxt, "eastward_wind")[length(nxt.time)]
+      dat.nxt[dat.nxt$time==min(dat.nxt$time),"nwind"  ] <- ncdf4::ncvar_get(nc.nxt, "northward_wind")[length(nxt.time)]
       dat.nxt[dat.nxt$time==min(dat.nxt$time),"wind"   ] <- sqrt(dat.nxt$ewind^2 + dat.nxt$nwind^2)[length(nxt.time)]
       
-      nc_close(nc.nxt)
+      ncdf4::nc_close(nc.nxt)
     } 
     
     dat.ens <- data.frame(
@@ -228,15 +203,12 @@ pred_subdaily_met <- function(outfolder, in.path, in.prefix, dat.train_file, sta
     )
     
     #so start point should be start piont -1, so we changed this to 2018-12-31
-    dat.ens$time.day <- as.numeric(difftime(dat.ens$date, paste0(y, "-12-31"), tz="GMT", units="day"))
+    prev_year = y -1
+    dat.ens$time.day <- as.numeric(difftime(dat.ens$date , paste0(y-1, "-12-31"), tz="GMT", units="day"))
     dat.ens <- merge(dat.ens, df.hour, all=T)
     
-    # A very ugly hack way to get the minutes in there, yeah don't really need this maf,
-    #can probably get rid of this and anywhere else that gets a minute aiight
-    #dat.ens$minute <- abs(dat.ens$hour-(round(dat.ens$hour, 0)))*60
-    
     dat.ens$date <- strptime(paste(dat.ens$year, dat.ens$doy, dat.ens$hour, sep="-"), "%Y-%j-%H", tz="GMT")
-    dat.ens$time.hr <- as.numeric(difftime(dat.ens$date, paste0(y,"-12-31"), tz="GMT", units="hour")) #+ minute(dat.train$date)/60
+    dat.ens$time.hr <- as.numeric(difftime(dat.ens$date, paste0(y-1,"-12-31"), tz="GMT", units="hour")) #+ minute(dat.train$date)/60
     dat.ens <- dat.ens[order(dat.ens$time.hr),]
     
     # -----------------------------------
@@ -245,17 +217,11 @@ pred_subdaily_met <- function(outfolder, in.path, in.prefix, dat.train_file, sta
     #       parallelized to speed it up soon, but we'll prototype in parallel
     # -----------------------------------
     
-    ens.sims <- predict.subdaily(dat.ens, n.ens=ens.hr, path.model=file.path(lm.models.base), lags.list=lags.init, lags.init=NULL, dat.train=dat.train)
+    ens.sims <- predict.subdaily(dat.ens, n.ens=ens.hr, path.model=file.path(lm.models.base), lags.list=NULL, lags.init=lags.init, dat.train=dat.train)
 
   # Set up the time dimension for this year
     hrs.now <- as.numeric(difftime(dat.ens$date, paste0(y,"-01-01"), tz="GMT", units="hour"))
-    dim.t <- ncdim_def(name = "time",
-                      units = paste0("hours since ", y, "-01-01 00:00:00:"),
-                      vals = hrs.now, # calculating the number of months in this run
-                      calendar = "standard", unlim = TRUE)
-  
-  
-  
+
     for(v in names(ens.sims)){
       lags.init[[v]] <- data.frame(ens.sims[[v]][length(ens.sims[[v]]),])
     }
@@ -305,10 +271,6 @@ pred_subdaily_met <- function(outfolder, in.path, in.prefix, dat.train_file, sta
       }
       ncdf4::nc_close(loc)
     }
-    
-    
-  
-  return(invisible(results))    
   }
 }
       
