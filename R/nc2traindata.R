@@ -6,19 +6,18 @@
 ##' @param in.prefix - prefix of model string as character (e.g. IPSL.r1i1p1.rcp85)
 ##' @param start_date 
 ##' @param end_date
+##' @param lat.in
+##' @param lon.in
 ##' @param upscale - # Upscale can either be set for FALSE (leave alone) or to the temporal resolution you want to aggregate to
                      # options are: year, doy (day of year), or hour
-##' @param CF.names - logical, default is FALSE 
 ##' @param overwrite
 ##' @param verbose
 
 ##' @author James Simkins, Christy Rollinson
-nc2traindata <- function(in.path, in.prefix, outfolder, start_date, end_date,
-                         upscale=FALSE, CF.names=FALSE,
+nc2traindata <- function(outfolder, in.path, in.prefix, start_date, end_date,
+                         upscale=FALSE,
                          overwrite = FALSE, verbose = FALSE, ...) {
-  
-  library(car)
-  
+
   start_date <- as.POSIXlt(start_date, tz = "UTC")
   end_date <- as.POSIXlt(end_date, tz = "UTC")
   
@@ -39,11 +38,11 @@ nc2traindata <- function(in.path, in.prefix, outfolder, start_date, end_date,
   }
   
   
-  var <- data.frame(CF.name = c("air_temperature", "air_temperature_max", "air_temperature_min", 
+  vars.info <- data.frame(CF.name = c("air_temperature", "air_temperature_max", "air_temperature_min", 
                                 "surface_downwelling_longwave_flux_in_air", "air_pressure", "surface_downwelling_shortwave_flux_in_air", 
                                 "eastward_wind", "northward_wind", "specific_humidity", "precipitation_flux"), 
-                    units = c("Kelvin", "Kelvin", "Kelvin", "W/m2", "Pascal", "W/m2", "m/s", 
-                              "m/s", "g/g", "kg/m2/s"))
+                            units = c("Kelvin", "Kelvin", "Kelvin", "W/m2", "Pascal", "W/m2", "m/s", 
+                                      "m/s", "g/g", "kg/m2/s"))
   
   stepby = list() # list of time stepbys just in case they vary
   
@@ -51,18 +50,16 @@ nc2traindata <- function(in.path, in.prefix, outfolder, start_date, end_date,
   raw_train_data <- list()
   tem <- ncdf4::nc_open(input_met[[1]])
   dim <- tem$dim
-  for (j in seq_along(var$CF.name)) {
-    if (exists(as.character(var$CF.name[j]), tem$var) == FALSE) {
+  for (j in seq_along(vars.info$CF.name)) {
+    if (exists(as.character(vars.info$CF.name[j]), tem$var) == FALSE) {
       raw_train_data[[j]] = NA
     } else {
-      raw_train_data[[j]] = ncdf4::ncvar_get(tem, as.character(var$CF.name[j]))
+      raw_train_data[[j]] = ncdf4::ncvar_get(tem, as.character(vars.info$CF.name[j]))
     }
   }
-  names(raw_train_data)<- var$CF.name 
+  names(raw_train_data)<- vars.info$CF.name 
   train_df = data.frame(raw_train_data)
-  # colnames(train_df) <- var$CF.name 
-  # train_df$year <- yr_seq[1]
-  
+
   raw_train_data = data.frame(raw_train_data)
   if ((nrow(raw_train_data) == 17520) | (nrow(raw_train_data) == 17568)) {
     stepby[1] = 2
@@ -88,19 +85,16 @@ nc2traindata <- function(in.path, in.prefix, outfolder, start_date, end_date,
         raw_train_data <- list()
         tem <- ncdf4::nc_open(input_met[[i]])
         dim <- tem$dim
-        for (j in seq_along(var$CF.name)) {
-          if (exists(as.character(var$CF.name[j]), tem$var) == FALSE) {
+        for (j in seq_along(vars.info$CF.name)) {
+          if (exists(as.character(vars.info$CF.name[j]), tem$var) == FALSE) {
             raw_train_data[[j]] = NA
           } else {
-            raw_train_data[[j]] = ncdf4::ncvar_get(tem, as.character(var$CF.name[j]))
+            raw_train_data[[j]] = ncdf4::ncvar_get(tem, as.character(vars.info$CF.name[j]))
           }
         }
-        names(raw_train_data)<- var$CF.name 
+        names(raw_train_data)<- vars.info$CF.name 
         raw_train_data = data.frame(raw_train_data)
-        # colnames(raw_train_data) <- var$CF.name 
-        # raw_train_data$year = yr_seq[i]
-        
-        #assign(paste0("train_df", i),raw_train_data)
+
         if ((nrow(raw_train_data) == 17520) | (nrow(raw_train_data) == 17568)) {
           stepby[i] = 2
         }
@@ -152,35 +146,40 @@ nc2traindata <- function(in.path, in.prefix, outfolder, start_date, end_date,
   dat.train$dataset <- paste0(in.prefix)
   
   # creating the columns required for downscaling functions
-  if(CF.names==TRUE){
-    # Just reorder the columns
-    dat.train <- dat.train[,c("date", "year", "doy","hour", "air_temperature", "precipitation_flux", "air_temperature_max", "air_temperature_min",
+  dat.train <- dat.train[,c("date", "year", "doy","hour", "air_temperature", "precipitation_flux", "air_temperature_max", "air_temperature_min",
                               "surface_downwelling_shortwave_flux_in_air", "surface_downwelling_longwave_flux_in_air","air_pressure",
                               "specific_humidity", "eastward_wind", "northward_wind", "wind_speed")]
-  } else {
-    # Re-order the column, plus use the codes Christy uses
-    dat.train <- dat.train[,c("date", "year", "doy","hour", "air_temperature", "precipitation_flux", "air_temperature_max", "air_temperature_min",
-                              "surface_downwelling_shortwave_flux_in_air", "surface_downwelling_longwave_flux_in_air","air_pressure",
-                              "specific_humidity", "eastward_wind", "northward_wind", "wind_speed")]
-    names(dat.train) <- recode(names(dat.train), "'air_temperature'='tair';
-                               'precipitation_flux'='precipf';
-                               'air_temperature_max'='tmax';
-                               'air_temperature_min'='tmin';
-                               'surface_downwelling_shortwave_flux_in_air'='swdown';
-                               'surface_downwelling_longwave_flux_in_air'='lwdown';
-                               'air_pressure'='press';
-                               'specific_humidity'='qair';
-                               'eastward_wind'='uas';
-                               'northward_wind'='vas';
-                               'wind_speed'='wind'"
-    )
-    
-  }
   
+  units_dat.train <- append(c("date","year", "day of year", "hour"),as.character(vars.info$units))
   rm(raw_train_data)
   rm(train_df)
   
-  outfile = paste0(in.prefix, "_dat.train")
-  write.csv(x = dat.train,file = outfile, row.names = FALSE)
+  # Create dimensions for NC file
+  ntime = nrow(dat.train)
+  lat <- ncdf4::ncdim_def(name = "latitude", units = "degree_north", vals = lat_raw_train_data, create_dimvar = TRUE)
+  lon <- ncdf4::ncdim_def(name = "longitude", units = "degree_east", vals = lon_raw_train_data, create_dimvar = TRUE)
+  time <- ncdf4::ncdim_def(name = "time", units = "sec", vals = (1:ntime) * 3600, 
+                           create_dimvar = TRUE, unlim = TRUE)
+  dim <- list(lat, lon, time)
   
+  # Create var.list for the NC file
+  var.list <- list()
+  for (j in seq_along(colnames(dat.train))){
+    var.list[[j]] <- ncdf4::ncvar_def(name  = as.character(colnames(dat.train[j])), 
+                                      units   = as.character(units_dat.train[j]), 
+                                      dim     = dim, 
+                                      missval = -9999, 
+                                      verbose = verbose)
+  }
+  
+  # Create NC file
+  dir.create(outfolder, showWarnings = FALSE, recursive = TRUE)
+  
+  loc.file <- file.path(outfolder, paste0(in.prefix, "_dat.train.nc"))
+  loc <- ncdf4::nc_create(filename = loc.file, vars = var.list, verbose = verbose)
+  
+  for (j in colnames(dat.train)) {
+    ncdf4::ncvar_put(nc = loc, varid = as.character(j), vals = dat.train[[j]][seq_len(nrow(dat.train))])
+  }
+  ncdf4::nc_close(loc)
 }
